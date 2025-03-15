@@ -15,7 +15,7 @@ export interface MatchingData {
 }
 
 // 洗牌算法
-function shuffleArray(array: any) {
+export function shuffleArray(array: any) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
@@ -26,7 +26,7 @@ function shuffleArray(array: any) {
 
 // 目前只创建w*h的连连看地图
 // TODO: 实现不同类型地图，typeNumber是生成不同地图的代码，但这里先默认是一种
-export function initiateMatchingData(cols: number = 15, rows: number = 10, typeNumber: number = 15): MatchingData {
+export function initiateMatchingData(rows: number = 10, cols: number = 15, typeNumber: number = 15): MatchingData {
     const totalCount = cols * rows;
     const typeCount = typeNumber
     const typeArray = []
@@ -38,7 +38,7 @@ export function initiateMatchingData(cols: number = 15, rows: number = 10, typeN
     // 假设现在有15中不同元素，并且数量相同，每个10个
     // TODO: 根据不同的地图，分布是不同的，目前就当成是均匀分布
 
-    if (totalCount % typeCount !== 0) throw new Error("totalCount must be divisible by typeCount")
+    if (totalCount % (typeCount * 2) !== 0) throw new Error("totalCount must be divisible by typeCount * 2")
     for (let i = 0; i < totalCount / typeCount; i++) {
         for (let j = 0; j < typeCount; j++) {
             typeArray.push(j);

@@ -9,7 +9,6 @@ export class MatchingGame extends Component {
     lastClickedCell: MatchingCell | null = null
 
     onLoad() {
-        console.log("场景加载成功", this.node);
     }
 
     start() {
@@ -18,9 +17,11 @@ export class MatchingGame extends Component {
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(20, 15, 20);
+        this.matchingData = initiateMatchingData(10, 15, 75);
+        console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
+        this.checkTableStatus()
     }
 
     // 不考虑别的更新方式，这里暂时只用于连接后
@@ -28,7 +29,7 @@ export class MatchingGame extends Component {
         keys.forEach((key,) => {
             this.matchingData.mapData.get(key).isMatched = true
         })
-        console.log(this.matchingData)
+        // console.log(this.matchingData)
     }
 
     initMatchingArray() {
@@ -53,14 +54,13 @@ export class MatchingGame extends Component {
                 }
             }
         }
-        console.log(this.matchingArray)
+        // console.log(this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
         const { cols } = this.matchingData;
         keys.forEach((key, index) => {
-            const x = Math.floor(key / cols) + 1
-            const y = (key % cols) + 1
+            const [x, y] = this.convertIdtoPos(key)
             this.matchingArray[x][y] = values[index]
         })
         console.log(this.matchingArray)
@@ -88,8 +88,9 @@ export class MatchingGame extends Component {
                 cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, i * cols + j), this)
             }
         }
-        
+
         table.getChildByName('matchingCell').destroy();
+        console.log(table)
     }
 
     updateMatchingTable(keys: number[]) {
@@ -109,26 +110,86 @@ export class MatchingGame extends Component {
         }
 
         if (this.checkCanMatch(this.lastClickedCell.id, clickCell.id)) {
-            console.log(clickCell.typeId, '连接成功')
+            // console.log(clickCell.typeId, '连接成功')
             // 更新MatchingData、MatchingArray、UI
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
+            // 检查是否成死局
+            this.checkTableStatus()
+
             // TODO: 发送更新后台数据请求
 
             this.lastClickedCell = null
         } else {
-            console.log(clickCell.typeId, '连接失败')
+            // console.log(clickCell.typeId, '连接失败')
             this.lastClickedCell = clickCell
         }
+    }
+
+    // 检查连连看是否死局
+    checkTableStatus() {
+        if (!this.checkTableCanMatch()) {
+            console.log('成死局')
+            // TODO: 洗牌
+            // TODO: 发送更新后台数据请求
+
+        }
+    }
+
+
+
+    //————————————————————————以下为一些功能性函数————————————————————————————
+
+    checkTableCanMatch() {
+        const { cols, rows, mapData } = this.matchingData
+        // key:typeId, value:id[]
+        let transformedMap = new Map<number, number[]>();
+
+        for (let [, value] of mapData) {
+            let ids = transformedMap.get(value.typeId) || [];
+            if (value.isEmpty || value.isMatched) continue;
+            ids.push(value.id);
+            transformedMap.set(value.typeId, ids);
+        }
+
+        for (let [key, value] of transformedMap) {
+            const unblockedCellIds = []
+            value.forEach((id) => { if (!this.checkCellBlocked(id)) unblockedCellIds.push(id) })
+            // console.log(key, value, unblockedCellIds)
+
+            for (let i = 0; i < unblockedCellIds.length; i++) {
+                for (let j = i + 1; j < unblockedCellIds.length; j++) {
+                    if (this.checkCanMatch(unblockedCellIds[i], unblockedCellIds[j])) return true
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // 把id转换成matchingArray中的坐标
+    convertIdtoPos(id: number): [number, number] {
+        return [Math.floor(id / this.matchingData.cols) + 1, (id % this.matchingData.cols) + 1];
+    }
+
+    // 检查四周是否被挡住
+    checkCellBlocked(id: number) {
+        const [x, y] = this.convertIdtoPos(id);
+        const value = this.matchingArray[x][y]
+        if (this.matchingArray[x + 1] && (this.matchingArray[x + 1][y] === -1 || this.matchingArray[x + 1][y] === value)) return false;
+        if (this.matchingArray[x - 1] && (this.matchingArray[x - 1][y] === -1 || this.matchingArray[x - 1][y] === value)) return false;
+        if (this.matchingArray[x][y + 1] === -1 || this.matchingArray[x][y + 1] === value) return false;
+        if (this.matchingArray[x][y - 1] === -1 || this.matchingArray[x][y - 1] === value) return false;
+        return true;
     }
 
     checkCanMatch(id1: number, id2: number): boolean {
         const { cols } = this.matchingData;
         const rows = this.matchingArray.length - 2;
 
-        const p1 = [Math.floor(id1 / cols) + 1, (id1 % cols) + 1];
-        const p2 = [Math.floor(id2 / cols) + 1, (id2 % cols) + 1];
+        const p1 = this.convertIdtoPos(id1);
+        const p2 = this.convertIdtoPos(id2);
 
         interface Node {
             x: number;
@@ -181,10 +242,6 @@ export class MatchingGame extends Component {
         }
 
         return false;
-    }
-
-    checkTableMatch() {
-
     }
 
 }
