@@ -1,4 +1,4 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, RigidBody } from 'cc';
+import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, UIOpacity, tween, easing } from 'cc';
 import { initiateMatchingData, MatchingData, MatchingCell } from './utils/initiateMatchingData';
 const { ccclass, property } = _decorator;
 
@@ -6,14 +6,21 @@ const { ccclass, property } = _decorator;
 export class MatchingGame extends Component {
     matchingData: MatchingData // 页面显示数据
     matchingArray = null // 用于处理逻辑
-    lastClickedCell: MatchingCell | null = null
+    matchingLink = [] // 用于记录当前可以连的格子
+    lastClickedCell: MatchingCell | null = null // 上一次点击的格子
 
     onLoad() {
+        console.log(this.node, '场景加载成功，SceneLoader 执行！');
     }
 
     start() {
         this.initGameLogic();
     }
+
+    addEventListeners() {
+        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, this.showLink, this) // 点击连线提示
+    }
+
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
@@ -21,7 +28,8 @@ export class MatchingGame extends Component {
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
-        this.checkTableStatus()
+        this.checkTableStatus();
+        this.addEventListeners();
     }
 
     // 不考虑别的更新方式，这里暂时只用于连接后
@@ -63,7 +71,7 @@ export class MatchingGame extends Component {
             const [x, y] = this.convertIdtoPos(key)
             this.matchingArray[x][y] = values[index]
         })
-        console.log(this.matchingArray)
+        // console.log(this.matchingArray)
     }
 
     // 用于UI显示
@@ -72,7 +80,6 @@ export class MatchingGame extends Component {
         const { cols, rows, mapData } = this.matchingData
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
-        console.log(cellSize)
 
         // for testing purposes
         // mapData.get(30).isEmpty = true
@@ -92,7 +99,6 @@ export class MatchingGame extends Component {
         }
 
         table.getChildByName('matchingCell').destroy();
-        console.log(table)
     }
 
     updateMatchingTable(keys: number[]) {
@@ -111,7 +117,8 @@ export class MatchingGame extends Component {
             return
         }
 
-        if (this.checkCanMatch(this.lastClickedCell.id, clickCell.id)) {
+        const result = this.checkCanMatchWithRoute(this.lastClickedCell.id, clickCell.id)
+        if (result.matched) {
             // console.log(clickCell.typeId, '连接成功')
             // 更新MatchingData、MatchingArray、UI
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
@@ -139,12 +146,38 @@ export class MatchingGame extends Component {
         }
     }
 
+    // 展示连连看的连线
+    showLink() {
+        let table = this.node.getChildByName('table');
+        const { cols, rows } = this.matchingData;
+        const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
+        const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
+
+        let graphicsNode = this.node.getChildByName('graphicsLink');
+        let graphics = graphicsNode.getComponent(Graphics);
+        console.log(graphics, this.matchingLink)
+        // graphics.clear();
+
+        if (this.matchingLink.length > 0) {
+            let firstPoint = this.convertPointToPosition(this.matchingLink[0], cellSize, tableWidth, tableHeight);
+            graphics.moveTo(firstPoint.x, firstPoint.y);
+
+            this.matchingLink.slice(1).forEach(point => {
+                let worldPos = this.convertPointToPosition(point, cellSize, tableWidth, tableHeight);
+                graphics.lineTo(worldPos.x, worldPos.y);
+            });
+            graphics.stroke();
+        }
+
+        // 调用函数开始淡出
+        this.startFadeOut(graphicsNode, 1, () => { graphics.clear() })
+    }
 
 
     //————————————————————————以下为一些功能性函数————————————————————————————
 
     checkTableCanMatch() {
-        const { cols, rows, mapData } = this.matchingData
+        const { mapData } = this.matchingData
         // key:typeId, value:id[]
         let transformedMap = new Map<number, number[]>();
 
@@ -155,15 +188,15 @@ export class MatchingGame extends Component {
             transformedMap.set(value.typeId, ids);
         }
 
-        for (let [key, value] of transformedMap) {
+        for (let [, value] of transformedMap) {
             const unblockedCellIds = []
             value.forEach((id) => { if (!this.checkCellBlocked(id)) unblockedCellIds.push(id) })
-            // console.log(key, value, unblockedCellIds)
 
             for (let i = 0; i < unblockedCellIds.length; i++) {
                 for (let j = i + 1; j < unblockedCellIds.length; j++) {
-                    if (this.checkCanMatch(unblockedCellIds[i], unblockedCellIds[j])) {
-                        console.log('可以连接的id', unblockedCellIds[i], unblockedCellIds[j])
+                    const result = this.checkCanMatchWithRoute(unblockedCellIds[i], unblockedCellIds[j])
+                    if (result.matched) {
+                        this.matchingLink = result.route;
                         return true
                     }
                 }
@@ -171,6 +204,28 @@ export class MatchingGame extends Component {
         }
 
         return false;
+    }
+
+    // TODO: 这个功能有问题，需要fix
+    startFadeOut(node: Node, fadeDuration: number = 3, callback: any) {
+        let uiOpacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+
+        tween(uiOpacity)
+            .to(fadeDuration, { opacity: 0 }, { easing: 'smooth' })
+            .call(() => {
+                callback()
+                uiOpacity.opacity = 255
+            })
+            .start();
+    }
+
+
+
+    // 把matchingArray中的坐标转换成位置(相对于table)
+    convertPointToPosition(point: { x: number, y: number }, cellSize: number, tableWidth: number, tableHeight: number) {
+        // 注意这里要-1是因为外面有一层
+        // 这里x y需要反过来
+        return new Vec3(-tableWidth / 2 + cellSize / 2 + (point.y - 1) * cellSize, tableHeight / 2 - cellSize / 2 - (point.x - 1) * cellSize)
     }
 
     // 把id转换成matchingArray中的坐标
@@ -189,7 +244,7 @@ export class MatchingGame extends Component {
         return true;
     }
 
-    checkCanMatch(id1: number, id2: number): boolean {
+    checkCanMatchWithRoute(id1: number, id2: number): { matched: boolean, route: { x: number, y: number }[] } {
         const { cols } = this.matchingData;
         const rows = this.matchingArray.length - 2;
 
@@ -201,6 +256,7 @@ export class MatchingGame extends Component {
             y: number;
             turns: number;
             direction: number; // -1: 初始，0:右，1:下，2:左，3:上
+            path: { x: number, y: number }[];
         }
 
         const directions = [
@@ -215,7 +271,7 @@ export class MatchingGame extends Component {
             Array.from({ length: cols + 2 }, () => Array(4).fill(Infinity))
         );
 
-        queue.push({ x: p1[0], y: p1[1], turns: -1, direction: -1 });
+        queue.push({ x: p1[0], y: p1[1], turns: -1, direction: -1, path: [{ x: p1[0], y: p1[1] }] });
 
         while (queue.length) {
             const curr = queue.shift();
@@ -224,7 +280,7 @@ export class MatchingGame extends Component {
             if (curr.turns >= 2) continue;
 
             if (curr.x === p2[0] && curr.y === p2[1] && curr.turns < 2) {
-                return true;
+                return { matched: true, route: curr.path };
             }
 
             for (let d = 0; d < 4; d++) {
@@ -233,7 +289,6 @@ export class MatchingGame extends Component {
 
                 if (nx < 0 || nx >= rows + 2 || ny < 0 || ny >= cols + 2) continue;
 
-                // 可以走的位置: 要么是目标位置，要么必须为 -1（空格）
                 const cellValue = this.matchingArray[nx][ny];
                 const isTarget = (nx === p2[0] && ny === p2[1]);
                 if (!(cellValue === -1 || isTarget)) continue;
@@ -242,11 +297,12 @@ export class MatchingGame extends Component {
                 if (visited[nx][ny][d] <= newTurns) continue;
 
                 visited[nx][ny][d] = newTurns;
-                queue.push({ x: nx, y: ny, turns: newTurns, direction: d });
+                const newPath = curr.path.concat([{ x: nx, y: ny }]);
+                queue.push({ x: nx, y: ny, turns: newTurns, direction: d, path: newPath });
             }
         }
 
-        return false;
+        return { matched: false, route: [] };
     }
 
 }
