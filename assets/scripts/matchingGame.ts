@@ -1,4 +1,4 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node } from 'cc';
+import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, RigidBody } from 'cc';
 import { initiateMatchingData, MatchingData, MatchingCell } from './utils/initiateMatchingData';
 const { ccclass, property } = _decorator;
 
@@ -17,7 +17,7 @@ export class MatchingGame extends Component {
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(10, 15, 75);
+        this.matchingData = initiateMatchingData(15, 20, 50);
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -72,6 +72,7 @@ export class MatchingGame extends Component {
         const { cols, rows, mapData } = this.matchingData
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
+        console.log(cellSize)
 
         // for testing purposes
         // mapData.get(30).isEmpty = true
@@ -80,12 +81,13 @@ export class MatchingGame extends Component {
                 const cellData = mapData.get(i * cols + j)
                 if (cellData.isEmpty) continue;
                 const cell = instantiate(table.getChildByName('matchingCell'));
-                cell.getComponent(UITransform).width = cell.getComponent(UITransform).height = cellSize;
+                cell.getComponent(UITransform).width = cellSize;
+                cell.getComponent(UITransform).height = cellSize;
                 cell.parent = table;
                 cell.name = cellData.id.toString();
                 cell.getChildByName('icon').getComponent(Label).string = cellData.typeId.toString();
                 cell.position = new Vec3(-tableWidth / 2 + cellSize / 2 + j * cellSize, tableHeight / 2 - cellSize / 2 - i * cellSize)
-                cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, i * cols + j), this)
+                cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
             }
         }
 
@@ -160,7 +162,10 @@ export class MatchingGame extends Component {
 
             for (let i = 0; i < unblockedCellIds.length; i++) {
                 for (let j = i + 1; j < unblockedCellIds.length; j++) {
-                    if (this.checkCanMatch(unblockedCellIds[i], unblockedCellIds[j])) return true
+                    if (this.checkCanMatch(unblockedCellIds[i], unblockedCellIds[j])) {
+                        console.log('可以连接的id', unblockedCellIds[i], unblockedCellIds[j])
+                        return true
+                    }
                 }
             }
         }
