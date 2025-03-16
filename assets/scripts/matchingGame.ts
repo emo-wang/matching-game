@@ -1,12 +1,12 @@
 import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, UIOpacity, tween, easing } from 'cc';
-import { initiateMatchingData, MatchingData, MatchingCell } from './utils/initiateMatchingData';
+import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
 const { ccclass, property } = _decorator;
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     matchingData: MatchingData // 页面显示数据
     matchingArray = null // 用于处理逻辑
-    matchingLink = [] // 用于记录当前可以连的格子
+    matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
 
     onLoad() {
@@ -24,7 +24,7 @@ export class MatchingGame extends Component {
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(15, 20, 50);
+        this.matchingData = initiateMatchingData(15, 20, 75);
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -76,18 +76,23 @@ export class MatchingGame extends Component {
 
     // 用于UI显示
     initGameTable() {
-        let table = this.node.getChildByName('table')
         const { cols, rows, mapData } = this.matchingData
+        this.generateUIbyData(cols, rows, mapData)
+
+    }
+
+    generateUIbyData(cols: number, rows: number, mapData: Map<number, MatchingCell>) {
+        let table = this.node.getChildByName('table')
+        let sample = this.node.getChildByName('matchingCell')
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
+        table.children.forEach(child => child.destroy())
 
-        // for testing purposes
-        // mapData.get(30).isEmpty = true
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
                 const cellData = mapData.get(i * cols + j)
-                if (cellData.isEmpty) continue;
-                const cell = instantiate(table.getChildByName('matchingCell'));
+                if (cellData.isEmpty || cellData.isMatched) continue;
+                const cell = instantiate(sample);
                 cell.getComponent(UITransform).width = cellSize;
                 cell.getComponent(UITransform).height = cellSize;
                 cell.parent = table;
@@ -97,8 +102,6 @@ export class MatchingGame extends Component {
                 cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
             }
         }
-
-        table.getChildByName('matchingCell').destroy();
     }
 
     updateMatchingTable(keys: number[]) {
@@ -119,19 +122,18 @@ export class MatchingGame extends Component {
 
         const result = this.checkCanMatchWithRoute(this.lastClickedCell.id, clickCell.id)
         if (result.matched) {
-            // console.log(clickCell.typeId, '连接成功')
-            // 更新MatchingData、MatchingArray、UI
+            // 更新MatchingData、MatchingArray、UI，检查是否成死局
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
-            // 检查是否成死局
             this.checkTableStatus()
+
+            // this.shuffleTable() //测试用
 
             // TODO: 发送更新后台数据请求
 
             this.lastClickedCell = null
         } else {
-            // console.log(clickCell.typeId, '连接失败')
             this.lastClickedCell = clickCell
         }
     }
@@ -140,13 +142,31 @@ export class MatchingGame extends Component {
     checkTableStatus() {
         if (!this.checkTableCanMatch()) {
             console.log('成死局')
-            // TODO: 洗牌
+            this.shuffleTable()
             // TODO: 发送更新后台数据请求
-
         }
     }
 
-    // 展示连连看的连线
+    // 随机打乱桌面 并获取新的提示线
+    shuffleTable() {
+        const { cols, rows, mapData } = this.matchingData
+        let keys = Array.from(mapData.keys());
+        let values = Array.from(mapData.values()).filter(value => !value.isEmpty && !value.isMatched)
+        shuffleArray(values)
+
+        let valueIndex = 0
+        for (let i = 0; i < keys.length; i++) {
+            if (mapData.get(keys[i]).isEmpty || mapData.get(keys[i]).isMatched) continue;
+            mapData.get(keys[i]).typeId = values[valueIndex].typeId
+            mapData.get(keys[i]).type = values[valueIndex].type
+            valueIndex++
+        }
+
+        if (!this.checkTableCanMatch()) this.shuffleTable()
+        this.generateUIbyData(cols, rows, mapData)
+    }
+
+    // 提示线
     showLink() {
         let table = this.node.getChildByName('table');
         const { cols, rows } = this.matchingData;
@@ -155,8 +175,7 @@ export class MatchingGame extends Component {
 
         let graphicsNode = this.node.getChildByName('graphicsLink');
         let graphics = graphicsNode.getComponent(Graphics);
-        console.log(graphics, this.matchingLink)
-        // graphics.clear();
+        graphics.clear();
 
         if (this.matchingLink.length > 0) {
             let firstPoint = this.convertPointToPosition(this.matchingLink[0], cellSize, tableWidth, tableHeight);
@@ -169,7 +188,6 @@ export class MatchingGame extends Component {
             graphics.stroke();
         }
 
-        // 调用函数开始淡出
         this.startFadeOut(graphicsNode, 1, () => { graphics.clear() })
     }
 
@@ -196,6 +214,7 @@ export class MatchingGame extends Component {
                 for (let j = i + 1; j < unblockedCellIds.length; j++) {
                     const result = this.checkCanMatchWithRoute(unblockedCellIds[i], unblockedCellIds[j])
                     if (result.matched) {
+                        // 将新的提示线储存起来
                         this.matchingLink = result.route;
                         return true
                     }
@@ -207,6 +226,7 @@ export class MatchingGame extends Component {
     }
 
     // TODO: 这个功能有问题，需要fix
+    // TODO: 封装到其他地方
     startFadeOut(node: Node, fadeDuration: number = 3, callback: any) {
         let uiOpacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
 
@@ -219,12 +239,7 @@ export class MatchingGame extends Component {
             .start();
     }
 
-
-
-    // 把matchingArray中的坐标转换成位置(相对于table)
     convertPointToPosition(point: { x: number, y: number }, cellSize: number, tableWidth: number, tableHeight: number) {
-        // 注意这里要-1是因为外面有一层
-        // 这里x y需要反过来
         return new Vec3(-tableWidth / 2 + cellSize / 2 + (point.y - 1) * cellSize, tableHeight / 2 - cellSize / 2 - (point.x - 1) * cellSize)
     }
 
@@ -233,7 +248,6 @@ export class MatchingGame extends Component {
         return [Math.floor(id / this.matchingData.cols) + 1, (id % this.matchingData.cols) + 1];
     }
 
-    // 检查四周是否被挡住
     checkCellBlocked(id: number) {
         const [x, y] = this.convertIdtoPos(id);
         const value = this.matchingArray[x][y]
