@@ -18,13 +18,13 @@ export class MatchingGame extends Component {
     }
 
     addEventListeners() {
-        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, this.showLink, this) // 点击连线提示
+        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this) // 点击连线提示
     }
 
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(15, 20, 75);
+        this.matchingData = initiateMatchingData(15, 20, 150);
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -37,7 +37,7 @@ export class MatchingGame extends Component {
         keys.forEach((key,) => {
             this.matchingData.mapData.get(key).isMatched = true
         })
-        console.log(this.matchingData)
+        console.log('更新matchingData', this.matchingData)
     }
 
     initMatchingArray() {
@@ -62,7 +62,7 @@ export class MatchingGame extends Component {
                 }
             }
         }
-        console.log(this.matchingArray)
+        console.log('生成matchingArray', this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
@@ -70,7 +70,7 @@ export class MatchingGame extends Component {
             const [x, y] = this.convertIdtoPos(key)
             this.matchingArray[x][y] = values[index]
         })
-        console.log(this.matchingArray)
+        console.log('更新matchingArray', this.matchingArray)
     }
 
     // 用于UI显示
@@ -90,8 +90,8 @@ export class MatchingGame extends Component {
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
                 const cellData = mapData.get(i * cols + j)
-                if (cellData.isEmpty || cellData.isMatched) continue;
                 const cell = instantiate(sample);
+                if (cellData.isMatched || cellData.isEmpty) cell.active = false;
                 cell.getComponent(UITransform).width = cellSize;
                 cell.getComponent(UITransform).height = cellSize;
                 cell.parent = table;
@@ -122,6 +122,8 @@ export class MatchingGame extends Component {
         const result = this.checkCanMatchWithRoute(this.lastClickedCell.id, clickCell.id)
         if (result.matched) {
             // 更新MatchingData、MatchingArray、UI，检查是否成死局
+            this.showLink(result.route, 0.3)
+            console.log('已连接id', this.lastClickedCell.id, clickCell.id)
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
@@ -160,8 +162,12 @@ export class MatchingGame extends Component {
             valueIndex++
         }
 
+        // 重置状态！
+        this.lastClickedCell = null
+        this.matchingLink = []
         this.initMatchingArray()
         this.generateUIbyData(cols, rows, mapData)
+        console.log('重置状态！', mapData, this.matchingArray)
 
         if (!this.checkTableCanMatch()) {
             this.shuffleTable()
@@ -169,7 +175,7 @@ export class MatchingGame extends Component {
     }
 
     // 提示线
-    showLink() {
+    showLink(route: { x: number, y: number }[], timeout: number = 1) {
         let table = this.node.getChildByName('table');
         const { cols, rows } = this.matchingData;
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
@@ -179,18 +185,18 @@ export class MatchingGame extends Component {
         let graphics = graphicsNode.getComponent(Graphics);
         graphics.clear();
 
-        if (this.matchingLink.length > 0) {
-            let firstPoint = this.convertPointToPosition(this.matchingLink[0], cellSize, tableWidth, tableHeight);
+        if (route.length > 0) {
+            let firstPoint = this.convertPointToPosition(route[0], cellSize, tableWidth, tableHeight);
             graphics.moveTo(firstPoint.x, firstPoint.y);
 
-            this.matchingLink.slice(1).forEach(point => {
+            route.slice(1).forEach(point => {
                 let worldPos = this.convertPointToPosition(point, cellSize, tableWidth, tableHeight);
                 graphics.lineTo(worldPos.x, worldPos.y);
             });
             graphics.stroke();
         }
 
-        this.startFadeOut(graphicsNode, 1, () => { graphics.clear() })
+        this.startFadeOut(graphicsNode, timeout, () => { graphics.clear() })
     }
 
     checkTableCanMatch() {
