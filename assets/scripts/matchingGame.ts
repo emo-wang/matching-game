@@ -18,13 +18,16 @@ export class MatchingGame extends Component {
     }
 
     addEventListeners() {
-        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this) // 点击连线提示
+         // 点击连线提示
+        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this)
+        // 点击打乱桌面
+        this.node.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
     }
 
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(15, 20, 150);
+        this.matchingData = initiateMatchingData(15, 20, 50);
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
