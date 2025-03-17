@@ -1,4 +1,4 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, UIOpacity, tween, easing } from 'cc';
+import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame } from 'cc';
 import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
 const { ccclass, property } = _decorator;
 
@@ -8,17 +8,36 @@ export class MatchingGame extends Component {
     matchingArray = null // 用于处理逻辑
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
+    spriteFrames: Map<number, SpriteFrame> = new Map();
+    gameStatus: boolean = false; //游戏状态
 
     onLoad() {
         console.log(this.node, '场景加载成功，SceneLoader 执行！');
     }
 
     start() {
-        this.initGameLogic();
+        this.loadGameResources(() => {
+            this.initGameLogic();
+        });
+    }
+
+    loadGameResources(callback: Function) {
+        resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
+            if (err) {
+                console.error('文件夹加载出错', err);
+                return;
+            }
+            assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
+            assets.forEach((asset, index) => {
+                this.spriteFrames.set(index, asset as SpriteFrame);
+            });
+
+            if (callback) callback();
+        });
     }
 
     addEventListeners() {
-         // 点击连线提示
+        // 点击连线提示
         this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this)
         // 点击打乱桌面
         this.node.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
@@ -27,7 +46,7 @@ export class MatchingGame extends Component {
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(15, 20, 50);
+        this.matchingData = initiateMatchingData(12, 20, 30);
         console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -92,14 +111,17 @@ export class MatchingGame extends Component {
 
         for (let i = 0; i < rows; i++) {
             for (let j = 0; j < cols; j++) {
-                const cellData = mapData.get(i * cols + j)
+                const id = i * cols + j;
+                const cellData = mapData.get(id)
                 const cell = instantiate(sample);
                 if (cellData.isMatched || cellData.isEmpty) cell.active = false;
                 cell.getComponent(UITransform).width = cellSize;
                 cell.getComponent(UITransform).height = cellSize;
                 cell.parent = table;
                 cell.name = cellData.id.toString();
-                cell.getChildByName('icon').getComponent(Label).string = cellData.typeId.toString();
+
+                cell.getChildByName('icon').getComponent(Sprite).spriteFrame = this.spriteFrames.get(cellData.typeId);
+                // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();
                 cell.position = new Vec3(-tableWidth / 2 + cellSize / 2 + j * cellSize, tableHeight / 2 - cellSize / 2 - i * cellSize)
                 cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
             }
@@ -130,7 +152,14 @@ export class MatchingGame extends Component {
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
-            this.checkTableStatus()
+
+            // 检查游戏是否结束
+            if (this.isGameEnd()) {
+                console.log('游戏结束')
+            } else {
+                this.checkTableStatus()
+            }
+
 
             // TODO: 发送更新后台数据请求
 
@@ -138,6 +167,17 @@ export class MatchingGame extends Component {
         } else {
             this.lastClickedCell = clickCell
         }
+    }
+
+    isGameEnd() {
+        for (let i = 0; i < this.matchingArray.length; i++) {
+            for (let j = 0; j < this.matchingArray[i].length; j++) {
+                if (this.matchingArray[i][j] !== -1) {
+                    return false
+                }
+            }
+        }
+        return true
     }
 
     // 检查连连看是否死局
@@ -154,7 +194,7 @@ export class MatchingGame extends Component {
     shuffleTable() {
         const { cols, rows, mapData } = this.matchingData
         let keys = Array.from(mapData.keys());
-        let values = Array.from(mapData.values()).filter(value => !value.isEmpty && !value.isMatched)
+        let values = Array.from(mapData.values()).map(item => JSON.parse(JSON.stringify(item))).filter(value => !value.isEmpty && !value.isMatched)
         shuffleArray(values)
 
         let valueIndex = 0
@@ -164,6 +204,7 @@ export class MatchingGame extends Component {
             mapData.get(keys[i]).type = values[valueIndex].type
             valueIndex++
         }
+
 
         // 重置状态！
         this.lastClickedCell = null
