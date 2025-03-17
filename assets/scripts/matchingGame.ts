@@ -37,11 +37,11 @@ export class MatchingGame extends Component {
         keys.forEach((key,) => {
             this.matchingData.mapData.get(key).isMatched = true
         })
-        // console.log(this.matchingData)
+        console.log(this.matchingData)
     }
 
     initMatchingArray() {
-        const { rows, cols } = this.matchingData
+        const { rows, cols, mapData } = this.matchingData
         this.matchingArray = [];
         let id: number = 0
         for (let i = 0; i < rows + 2; i++) {
@@ -51,27 +51,26 @@ export class MatchingGame extends Component {
                     this.matchingArray[i][j] = -1
                 }
                 else {
-                    const { typeId, isEmpty, isMatched } = this.matchingData.mapData.get(id)
+                    const { typeId, isEmpty, isMatched } = mapData.get(id)
                     if (isEmpty || isMatched) {
                         this.matchingArray[i][j] = -1
                     }
                     else {
                         this.matchingArray[i][j] = typeId
-                        id++
                     }
+                    id++
                 }
             }
         }
-        // console.log(this.matchingArray)
+        console.log(this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
-        const { cols } = this.matchingData;
         keys.forEach((key, index) => {
             const [x, y] = this.convertIdtoPos(key)
             this.matchingArray[x][y] = values[index]
         })
-        // console.log(this.matchingArray)
+        console.log(this.matchingArray)
     }
 
     // 用于UI显示
@@ -107,7 +106,7 @@ export class MatchingGame extends Component {
     updateMatchingTable(keys: number[]) {
         const matchingNodes = this.node.getChildByName('table').children
         keys.forEach((key,) => {
-            matchingNodes[key].active = false
+            if (matchingNodes[key]) { matchingNodes[key].active = false }
         })
     }
 
@@ -128,8 +127,6 @@ export class MatchingGame extends Component {
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
             this.checkTableStatus()
 
-            // this.shuffleTable() //测试用
-
             // TODO: 发送更新后台数据请求
 
             this.lastClickedCell = null
@@ -140,6 +137,7 @@ export class MatchingGame extends Component {
 
     // 检查连连看是否死局
     checkTableStatus() {
+        // this.shuffleTable() //测试用
         if (!this.checkTableCanMatch()) {
             console.log('成死局')
             this.shuffleTable()
@@ -162,8 +160,12 @@ export class MatchingGame extends Component {
             valueIndex++
         }
 
-        if (!this.checkTableCanMatch()) this.shuffleTable()
+        this.initMatchingArray()
         this.generateUIbyData(cols, rows, mapData)
+
+        if (!this.checkTableCanMatch()) {
+            this.shuffleTable()
+        }
     }
 
     // 提示线
@@ -190,9 +192,6 @@ export class MatchingGame extends Component {
 
         this.startFadeOut(graphicsNode, 1, () => { graphics.clear() })
     }
-
-
-    //————————————————————————以下为一些功能性函数————————————————————————————
 
     checkTableCanMatch() {
         const { mapData } = this.matchingData
@@ -224,6 +223,10 @@ export class MatchingGame extends Component {
 
         return false;
     }
+
+
+    //————————————————————————以下为一些功能性函数————————————————————————————
+
 
     // TODO: 这个功能有问题，需要fix
     // TODO: 封装到其他地方
