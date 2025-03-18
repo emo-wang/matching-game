@@ -9,7 +9,6 @@ export class MatchingGame extends Component {
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
-    gameStatus: boolean = false; //游戏状态
 
     onLoad() {
         console.log(this.node, '场景加载成功，SceneLoader 执行！');
@@ -37,21 +36,30 @@ export class MatchingGame extends Component {
     }
 
     addEventListeners() {
+        const buttons = this.node.getChildByName('buttons')
         // 点击连线提示
-        this.node.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this)
+        buttons.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this)
         // 点击打乱桌面
-        this.node.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
+        buttons.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
+        // 重新开始
+        buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.initGameLogic, this)
     }
 
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
         this.matchingData = initiateMatchingData(12, 20, 30);
-        console.log('matchingData', this.matchingData)
+        // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
         this.checkTableStatus();
         this.addEventListeners();
+    }
+
+    restartGame() {
+        this.matchingLink = []
+        this.lastClickedCell = null
+        this.initGameLogic()
     }
 
     // 不考虑别的更新方式，这里暂时只用于连接后
@@ -59,7 +67,7 @@ export class MatchingGame extends Component {
         keys.forEach((key,) => {
             this.matchingData.mapData.get(key).isMatched = true
         })
-        console.log('更新matchingData', this.matchingData)
+        // console.log('更新matchingData', this.matchingData)
     }
 
     initMatchingArray() {
@@ -84,7 +92,7 @@ export class MatchingGame extends Component {
                 }
             }
         }
-        console.log('生成matchingArray', this.matchingArray)
+        // console.log('生成matchingArray', this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
@@ -92,7 +100,7 @@ export class MatchingGame extends Component {
             const [x, y] = this.convertIdtoPos(key)
             this.matchingArray[x][y] = values[index]
         })
-        console.log('更新matchingArray', this.matchingArray)
+        // console.log('更新matchingArray', this.matchingArray)
     }
 
     // 用于UI显示
@@ -148,7 +156,7 @@ export class MatchingGame extends Component {
         if (result.matched) {
             // 更新MatchingData、MatchingArray、UI，检查是否成死局
             this.showLink(result.route, 0.3)
-            console.log('已连接id', this.lastClickedCell.id, clickCell.id)
+            // console.log('已连接id', this.lastClickedCell.id, clickCell.id)
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
@@ -159,8 +167,6 @@ export class MatchingGame extends Component {
             } else {
                 this.checkTableStatus()
             }
-
-
             // TODO: 发送更新后台数据请求
 
             this.lastClickedCell = null
@@ -178,16 +184,6 @@ export class MatchingGame extends Component {
             }
         }
         return true
-    }
-
-    // 检查连连看是否死局
-    checkTableStatus() {
-        // this.shuffleTable() //测试用
-        if (!this.checkTableCanMatch()) {
-            console.log('成死局')
-            this.shuffleTable()
-            // TODO: 发送更新后台数据请求
-        }
     }
 
     // 随机打乱桌面 并获取新的提示线
@@ -211,7 +207,7 @@ export class MatchingGame extends Component {
         this.matchingLink = []
         this.initMatchingArray()
         this.generateUIbyData(cols, rows, mapData)
-        console.log('重置状态！', mapData, this.matchingArray)
+        // console.log('重置状态！', mapData, this.matchingArray)
 
         if (!this.checkTableCanMatch()) {
             this.shuffleTable()
@@ -290,6 +286,15 @@ export class MatchingGame extends Component {
                 uiOpacity.opacity = 255
             })
             .start();
+    }
+
+    // 检查连连看是否死局
+    checkTableStatus() {
+        if (!this.checkTableCanMatch()) {
+            console.log('成死局')
+            this.shuffleTable()
+            // TODO: 发送更新后台数据请求
+        }
     }
 
     convertPointToPosition(point: { x: number, y: number }, cellSize: number, tableWidth: number, tableHeight: number) {
