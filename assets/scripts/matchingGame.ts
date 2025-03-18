@@ -1,5 +1,6 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame } from 'cc';
 import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
+import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -17,6 +18,8 @@ export class MatchingGame extends Component {
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
     gameStatus: String = GAMESTATUS.PENDING // 'pending', 'playing', 'win', 'lose'
+    cellHeight: number = 0; // 目前是正方形
+    cellWidth: number = 0; // 目前是正方形
 
     onLoad() {
         console.log(this.node, '场景加载成功，SceneLoader 执行！');
@@ -58,7 +61,7 @@ export class MatchingGame extends Component {
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(5, 12, 30);
+        this.matchingData = initiateMatchingData(12, 20, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -126,6 +129,8 @@ export class MatchingGame extends Component {
         let sample = this.node.getChildByName('matchingCell')
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
+        this.cellHeight = cellSize;
+        this.cellWidth = cellSize;
         table.children.forEach(child => child.destroy())
 
         for (let i = 0; i < rows; i++) {
@@ -140,7 +145,7 @@ export class MatchingGame extends Component {
                 cell.name = cellData.id.toString();
 
                 cell.getChildByName('icon').getComponent(Sprite).spriteFrame = this.spriteFrames.get(cellData.typeId);
-                // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();
+                // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();// id用于测试
                 cell.position = new Vec3(-tableWidth / 2 + cellSize / 2 + j * cellSize, tableHeight / 2 - cellSize / 2 - i * cellSize)
                 cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
             }
@@ -161,11 +166,18 @@ export class MatchingGame extends Component {
 
     clickCell(e: any, mapId: number) {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
+
         const clickCell: MatchingCell = this.matchingData.mapData.get(mapId)
-        if (clickCell.isMatched || clickCell.id === this.lastClickedCell?.id) return
+
+        if (clickCell.isMatched || clickCell.isEmpty) return
+
+        if (clickCell.id === this.lastClickedCell?.id) {
+            this.setLastClickedCell(null)
+            return
+        }
 
         if (clickCell.typeId !== this.lastClickedCell?.typeId) {
-            this.lastClickedCell = clickCell
+            this.setLastClickedCell(clickCell)
             return
         }
 
@@ -178,7 +190,6 @@ export class MatchingGame extends Component {
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
 
-            // 检查游戏是否结束
             if (this.isGameEnd()) {
                 this.gameStatus = GAMESTATUS.WIN
                 console.log('游戏结束')
@@ -186,11 +197,24 @@ export class MatchingGame extends Component {
                 this.checkTableStatus()
             }
             // TODO: 发送更新后台数据请求
-
-            this.lastClickedCell = null
+            this.setLastClickedCell(null)
         } else {
-            this.lastClickedCell = clickCell
+            this.setLastClickedCell(clickCell)
         }
+    }
+
+    setLastClickedCell(clickedCell: MatchingCell | null) {
+        // 取消之前的高亮 无论有没有新的
+        if (this.lastClickedCell !== null) {
+            let graphics = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
+            drawBackgroundBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+        }
+        // 设置新的高亮
+        if (clickedCell !== null) {
+            let graphics = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
+            drawHighlightBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+        }
+        this.lastClickedCell = clickedCell
     }
 
     shuffleTable() {
