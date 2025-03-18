@@ -2,6 +2,13 @@ import { _decorator, Component, UITransform, instantiate, Vec3, Label, Node, Gra
 import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
 const { ccclass, property } = _decorator;
 
+const GAMESTATUS = {
+    PENDING: 'pending',
+    PLAYING: 'playing',
+    WIN: 'win',
+    LOSE: 'lose'
+}
+
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     matchingData: MatchingData // 页面显示数据
@@ -9,6 +16,7 @@ export class MatchingGame extends Component {
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
+    gameStatus: String = GAMESTATUS.PENDING // 'pending', 'playing', 'win', 'lose'
 
     onLoad() {
         console.log(this.node, '场景加载成功，SceneLoader 执行！');
@@ -17,9 +25,11 @@ export class MatchingGame extends Component {
     start() {
         this.loadGameResources(() => {
             this.initGameLogic();
+            this.addEventListeners();
         });
     }
 
+    // TODO：封装
     loadGameResources(callback: Function) {
         resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
             if (err) {
@@ -38,25 +48,26 @@ export class MatchingGame extends Component {
     addEventListeners() {
         const buttons = this.node.getChildByName('buttons')
         // 点击连线提示
-        buttons.getChildByName('hint').on(Node.EventType.TOUCH_END, () => this.showLink(this.matchingLink, 1), this)
+        buttons.getChildByName('hint').on(Node.EventType.TOUCH_END, this.onClickHint, this)
         // 点击打乱桌面
         buttons.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
         // 重新开始
-        buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.initGameLogic, this)
+        buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
     }
 
 
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(12, 20, 30);
+        this.matchingData = initiateMatchingData(5, 12, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
+        this.gameStatus = GAMESTATUS.PLAYING
         this.checkTableStatus();
-        this.addEventListeners();
     }
 
     restartGame() {
+        this.gameStatus = GAMESTATUS.PENDING
         this.matchingLink = []
         this.lastClickedCell = null
         this.initGameLogic()
@@ -143,7 +154,13 @@ export class MatchingGame extends Component {
         })
     }
 
+    onClickHint() {
+        if (this.gameStatus !== GAMESTATUS.PLAYING) return
+        this.showLink(this.matchingLink, 1)
+    }
+
     clickCell(e: any, mapId: number) {
+        if (this.gameStatus !== GAMESTATUS.PLAYING) return
         const clickCell: MatchingCell = this.matchingData.mapData.get(mapId)
         if (clickCell.isMatched || clickCell.id === this.lastClickedCell?.id) return
 
@@ -163,6 +180,7 @@ export class MatchingGame extends Component {
 
             // 检查游戏是否结束
             if (this.isGameEnd()) {
+                this.gameStatus = GAMESTATUS.WIN
                 console.log('游戏结束')
             } else {
                 this.checkTableStatus()
@@ -175,19 +193,8 @@ export class MatchingGame extends Component {
         }
     }
 
-    isGameEnd() {
-        for (let i = 0; i < this.matchingArray.length; i++) {
-            for (let j = 0; j < this.matchingArray[i].length; j++) {
-                if (this.matchingArray[i][j] !== -1) {
-                    return false
-                }
-            }
-        }
-        return true
-    }
-
-    // 随机打乱桌面 并获取新的提示线
     shuffleTable() {
+        if (this.gameStatus !== GAMESTATUS.PLAYING && this.gameStatus !== GAMESTATUS.PENDING) return
         const { cols, rows, mapData } = this.matchingData
         let keys = Array.from(mapData.keys());
         let values = Array.from(mapData.values()).map(item => JSON.parse(JSON.stringify(item))).filter(value => !value.isEmpty && !value.isMatched)
@@ -203,6 +210,7 @@ export class MatchingGame extends Component {
 
 
         // 重置状态！
+        this.gameStatus = GAMESTATUS.PLAYING
         this.lastClickedCell = null
         this.matchingLink = []
         this.initMatchingArray()
@@ -270,6 +278,16 @@ export class MatchingGame extends Component {
         return false;
     }
 
+    // 检查连连看是否死局
+    checkTableStatus() {
+        if (!this.checkTableCanMatch()) {
+            this.gameStatus = GAMESTATUS.PENDING
+            console.log('成死局')
+            this.shuffleTable()
+            // TODO: 发送更新后台数据请求
+        }
+    }
+
 
     //————————————————————————以下为一些功能性函数————————————————————————————
 
@@ -288,13 +306,15 @@ export class MatchingGame extends Component {
             .start();
     }
 
-    // 检查连连看是否死局
-    checkTableStatus() {
-        if (!this.checkTableCanMatch()) {
-            console.log('成死局')
-            this.shuffleTable()
-            // TODO: 发送更新后台数据请求
+    isGameEnd() {
+        for (let i = 0; i < this.matchingArray.length; i++) {
+            for (let j = 0; j < this.matchingArray[i].length; j++) {
+                if (this.matchingArray[i][j] !== -1) {
+                    return false
+                }
+            }
         }
+        return true
     }
 
     convertPointToPosition(point: { x: number, y: number }, cellSize: number, tableWidth: number, tableHeight: number) {
