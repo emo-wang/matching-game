@@ -1,14 +1,16 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame } from 'cc';
+import { _decorator, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame, ProgressBar, Game, Label } from 'cc';
 import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
-    PENDING: 'pending',
+    PENDING: 'pending', // 初始状态、等待刷新状态
     PLAYING: 'playing',
     WIN: 'win',
     LOSE: 'lose'
 }
+
+const TIMELIMIT = 60
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
@@ -20,6 +22,20 @@ export class MatchingGame extends Component {
     gameStatus: String = GAMESTATUS.PENDING // 'pending', 'playing', 'win', 'lose'
     cellHeight: number = 0; // 目前是正方形
     cellWidth: number = 0; // 目前是正方形
+    // TODO: 添加时间限制，道具使用次数限制
+    timeLeft: number = TIMELIMIT; // 秒
+    combos: number = 0; // 连续消除
+    // TODO: 输游戏、赢游戏
+
+    update(dt: number): void {
+        if (this.gameStatus === GAMESTATUS.PLAYING) {
+            this.timeLeft -= dt;
+            this.node.getChildByName('timebar').getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
+            if (this.timeLeft <= 0) {
+                this.setGameStatus(GAMESTATUS.LOSE);
+            }
+        }
+    }
 
     onLoad() {
         console.log(this.node, '场景加载成功，SceneLoader 执行！');
@@ -32,7 +48,7 @@ export class MatchingGame extends Component {
         });
     }
 
-    // TODO：封装
+    // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
         resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
             if (err) {
@@ -58,19 +74,20 @@ export class MatchingGame extends Component {
         buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
     }
 
-
     initGameLogic() {
         // TODO: 后续换成从接口获取数据
         this.matchingData = initiateMatchingData(12, 20, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
-        this.gameStatus = GAMESTATUS.PLAYING
+        this.timeLeft = TIMELIMIT
+        this.setGameStatus(GAMESTATUS.PLAYING)
         this.checkTableStatus();
     }
 
     restartGame() {
-        this.gameStatus = GAMESTATUS.PENDING
+        if (this.gameStatus === GAMESTATUS.PLAYING || this.gameStatus === GAMESTATUS.PENDING) return
+        this.setGameStatus(GAMESTATUS.PENDING)
         this.matchingLink = []
         this.lastClickedCell = null
         this.initGameLogic()
@@ -117,11 +134,9 @@ export class MatchingGame extends Component {
         // console.log('更新matchingArray', this.matchingArray)
     }
 
-    // 用于UI显示
     initGameTable() {
         const { cols, rows, mapData } = this.matchingData
         this.generateUIbyData(cols, rows, mapData)
-
     }
 
     generateUIbyData(cols: number, rows: number, mapData: Map<number, MatchingCell>) {
@@ -164,6 +179,7 @@ export class MatchingGame extends Component {
         this.showLink(this.matchingLink, 1)
     }
 
+
     clickCell(e: any, mapId: number) {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
 
@@ -183,6 +199,7 @@ export class MatchingGame extends Component {
 
         const result = this.checkCanMatchWithRoute(this.lastClickedCell.id, clickCell.id)
         if (result.matched) {
+            this.timeLeft = TIMELIMIT
             // 更新MatchingData、MatchingArray、UI，检查是否成死局
             this.showLink(result.route, 0.3)
             // console.log('已连接id', this.lastClickedCell.id, clickCell.id)
@@ -191,7 +208,7 @@ export class MatchingGame extends Component {
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
 
             if (this.isGameEnd()) {
-                this.gameStatus = GAMESTATUS.WIN
+                this.setGameStatus(GAMESTATUS.WIN)
                 console.log('游戏结束')
             } else {
                 this.checkTableStatus()
@@ -201,20 +218,6 @@ export class MatchingGame extends Component {
         } else {
             this.setLastClickedCell(clickCell)
         }
-    }
-
-    setLastClickedCell(clickedCell: MatchingCell | null) {
-        // 取消之前的高亮 无论有没有新的
-        if (this.lastClickedCell !== null) {
-            let graphics = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
-            drawBackgroundBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
-        }
-        // 设置新的高亮
-        if (clickedCell !== null) {
-            let graphics = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
-            drawHighlightBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
-        }
-        this.lastClickedCell = clickedCell
     }
 
     shuffleTable() {
@@ -234,7 +237,7 @@ export class MatchingGame extends Component {
 
 
         // 重置状态！
-        this.gameStatus = GAMESTATUS.PLAYING
+        this.setGameStatus(GAMESTATUS.PLAYING)
         this.lastClickedCell = null
         this.matchingLink = []
         this.initMatchingArray()
@@ -305,10 +308,45 @@ export class MatchingGame extends Component {
     // 检查连连看是否死局
     checkTableStatus() {
         if (!this.checkTableCanMatch()) {
-            this.gameStatus = GAMESTATUS.PENDING
+            this.setGameStatus(GAMESTATUS.PENDING)
             console.log('成死局')
             this.shuffleTable()
             // TODO: 发送更新后台数据请求
+        }
+    }
+
+    setLastClickedCell(clickedCell: MatchingCell | null) {
+        // 取消之前的高亮 无论有没有新的
+        if (this.lastClickedCell !== null) {
+            let graphics = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
+            drawBackgroundBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+        }
+        // 设置新的高亮
+        if (clickedCell !== null) {
+            let graphics = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
+            drawHighlightBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+        }
+        this.lastClickedCell = clickedCell
+    }
+
+    setGameStatus(status: String) {
+        this.gameStatus = status;
+        this.node.getChildByName('status').getComponent(Label).string = status.toString();
+        switch (status) {
+            case GAMESTATUS.PLAYING:
+
+                break;
+            case GAMESTATUS.PENDING:
+
+                break;
+            case GAMESTATUS.LOSE:
+
+                break;
+            case GAMESTATUS.WIN:
+
+                break;
+            default:
+                break;
         }
     }
 
