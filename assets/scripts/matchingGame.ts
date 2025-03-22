@@ -1,5 +1,5 @@
-import { _decorator, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, resources, Sprite, SpriteFrame, ProgressBar, Game, Label } from 'cc';
-import { initiateMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initiateMatchingData';
+import { _decorator, resources, JsonAsset, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
+import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 const { ccclass, property } = _decorator;
 
@@ -14,7 +14,7 @@ const TIMELIMIT = 60
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
-    matchingData: MatchingData // 页面显示数据
+    matchingData: MatchingData = null // 页面显示数据
     matchingArray = null // 用于处理逻辑
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
@@ -22,10 +22,8 @@ export class MatchingGame extends Component {
     gameStatus: String = GAMESTATUS.PENDING // 'pending', 'playing', 'win', 'lose'
     cellHeight: number = 0; // 目前是正方形
     cellWidth: number = 0; // 目前是正方形
-    // TODO: 添加时间限制，道具使用次数限制
-    timeLeft: number = TIMELIMIT; // 秒
+    timeLeft: number = TIMELIMIT; // 剩余时间
     combos: number = 0; // 连续消除
-    // TODO: 输游戏、赢游戏
 
     update(dt: number): void {
         if (this.gameStatus === GAMESTATUS.PLAYING) {
@@ -50,11 +48,19 @@ export class MatchingGame extends Component {
 
     // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
+        resources.load('json/matching-game', JsonAsset, (err, jsonAsset) => {
+            if (err) {
+                console.error('JSON文件加载失败:', err);
+                return;
+            }
+            // this.matchingData = jsonAsset.json as MatchingData;
+        });
+
         resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
             if (err) {
                 console.error('文件夹加载出错', err);
-                return;
             }
+
             assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
             assets.forEach((asset, index) => {
                 this.spriteFrames.set(index, asset as SpriteFrame);
@@ -63,6 +69,7 @@ export class MatchingGame extends Component {
             if (callback) callback();
         });
     }
+
 
     addEventListeners() {
         const buttons = this.node.getChildByName('buttons')
@@ -74,9 +81,12 @@ export class MatchingGame extends Component {
         buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
     }
 
-    initGameLogic() {
-        // TODO: 后续换成从接口获取数据
-        this.matchingData = initiateMatchingData(12, 20, 30);
+    initGameLogic() {   
+        // console.log(this.matchingData)
+        // if (this.matchingData.mapData.size === 0) {
+        //     this.matchingData = initMatchingData(12, 20, 30);
+        // }
+        this.matchingData = initMatchingData(12, 20, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();

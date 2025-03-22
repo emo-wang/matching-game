@@ -26,7 +26,7 @@ export function shuffleArray(array: any) {
 
 // 目前只创建w*h的连连看地图
 // TODO: 实现不同类型地图，typeNumber是生成不同地图的代码，但这里先默认是一种
-export function initiateMatchingData(rows: number = 10, cols: number = 15, typeNumber: number = 15): MatchingData {
+export function initMatchingData(rows: number = 10, cols: number = 15, typeNumber: number = 15): MatchingData {
     const totalCount = cols * rows;
     const typeCount = typeNumber
     const typeArray = []
