@@ -1,5 +1,5 @@
-import { _decorator, resources, JsonAsset, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
-import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/initMatchingData';
+import { _decorator, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
+import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 const { ccclass, property } = _decorator;
 
@@ -48,13 +48,6 @@ export class MatchingGame extends Component {
 
     // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
-        resources.load('json/matching-game', JsonAsset, (err, jsonAsset) => {
-            if (err) {
-                console.error('JSON文件加载失败:', err);
-                return;
-            }
-            // this.matchingData = jsonAsset.json as MatchingData;
-        });
 
         resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
             if (err) {
@@ -82,10 +75,6 @@ export class MatchingGame extends Component {
     }
 
     initGameLogic() {   
-        // console.log(this.matchingData)
-        // if (this.matchingData.mapData.size === 0) {
-        //     this.matchingData = initMatchingData(12, 20, 30);
-        // }
         this.matchingData = initMatchingData(12, 20, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
