@@ -36,7 +36,7 @@ export class MatchingGame extends Component {
     }
 
     onLoad() {
-        console.log(this.node, '场景加载成功，SceneLoader 执行！');
+        console.log(this.node, 'MatchingGame 场景加载成功');
     }
 
     start() {
@@ -48,7 +48,6 @@ export class MatchingGame extends Component {
 
     // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
-
         resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
             if (err) {
                 console.error('文件夹加载出错', err);
