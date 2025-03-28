@@ -49,10 +49,27 @@ export class GameLobby extends Component {
 
     initGameLobby() {
         this.roomList = lobbyData.roomList;
-        this.initLobbyTableUI()
+        this.addEventListener()
+        this.generateUIbyLobbyData()
     }
 
-    initLobbyTableUI() {
+    addEventListener() {
+        const btns = this.node.getChildByName('btns')
+        btns.getChildByName('createRoom').on(Node.EventType.TOUCH_END, this.createRoom, this)
+        btns.getChildByName('joinRoom').on(Node.EventType.TOUCH_END, this.joinRoom, this)
+        btns.getChildByName('refresh').on(Node.EventType.TOUCH_END, this.refresh, this)
+    }
+
+    createRoom() { }
+
+    joinRoom() {
+        if (this.curRoomId === null) return
+        console.log(this.curRoomId)
+    }
+
+    refresh() { }
+
+    generateUIbyLobbyData() {
         if (this.roomList.length === 0) return;
 
         // add titles
@@ -64,8 +81,6 @@ export class GameLobby extends Component {
             titleNode.getComponent(Label).fontSize = FONTSIZE
             sv.getChildByName('titles').addChild(titleNode)
         });
-
-        // TODO: add button
 
         // add RoomList
         let roomSample = sv.getChildByName('view').getChildByName('content').getChildByName('roomSample')
@@ -85,16 +100,21 @@ export class GameLobby extends Component {
     }
 
     clickRoom(e: any, roomId: number) {
-        console.log('点击了房间:', roomId)
+        // console.log('点击了房间:', roomId)
         const selColor = new Color(255, 182, 193, 140);
         const unselColor = new Color(140, 140, 140, 140);
         let svContent = this.node.getChildByName('roomScrollView').getChildByName('view').getChildByName('content')
 
-        if (this.curRoomId === roomId) return
+        if (this.curRoomId === roomId) {
+            svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = unselColor;
+            this.curRoomId = null;
+            return;
+        }
 
         if (this.curRoomId !== null) {
             svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = unselColor;
         }
+        
         this.curRoomId = roomId;
         svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = selColor;
         // TODO: 跳转到 RoomScene
