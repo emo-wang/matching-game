@@ -1,4 +1,6 @@
-import { _decorator, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
+import { _decorator, director, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
+import { Toast } from '../prefabs/scripts/Toast';
+import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
 const { ccclass, property } = _decorator;
 
 // TODO: 从配置中获取
@@ -55,19 +57,23 @@ export class GameLobby extends Component {
 
     addEventListener() {
         const btns = this.node.getChildByName('btns')
-        btns.getChildByName('createRoom').on(Node.EventType.TOUCH_END, this.createRoom, this)
-        btns.getChildByName('joinRoom').on(Node.EventType.TOUCH_END, this.joinRoom, this)
-        btns.getChildByName('refresh').on(Node.EventType.TOUCH_END, this.refresh, this)
+        btns.getChildByName('createRoom').on(Node.EventType.TOUCH_END, this.onClickCreateRoom, this)
+        btns.getChildByName('joinRoom').on(Node.EventType.TOUCH_END, this.onClickJoinRoom, this)
+        btns.getChildByName('refresh').on(Node.EventType.TOUCH_END, this.onClickRefresh, this)
     }
 
-    createRoom() { }
+    onClickCreateRoom() { }
+
+    onClickJoinRoom() {
+        if (this.curRoomId === null) return
+        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.curRoomId}`, undefined, undefined, this.joinRoom, undefined)
+    }
 
     joinRoom() {
-        if (this.curRoomId === null) return
-        console.log(this.curRoomId)
+        director.loadScene('MatchingGame')
     }
 
-    refresh() { }
+    onClickRefresh() { }
 
     generateUIbyLobbyData() {
         if (this.roomList.length === 0) return;
@@ -114,10 +120,11 @@ export class GameLobby extends Component {
         if (this.curRoomId !== null) {
             svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = unselColor;
         }
-        
+
         this.curRoomId = roomId;
         svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = selColor;
         // TODO: 跳转到 RoomScene
+
 
     }
 
