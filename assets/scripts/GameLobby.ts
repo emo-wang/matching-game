@@ -70,7 +70,7 @@ export class GameLobby extends Component {
     }
 
     joinRoom() {
-        director.loadScene('MatchingGame')
+        director.loadScene('RoomScene')
     }
 
     onClickRefresh() { }
@@ -123,8 +123,6 @@ export class GameLobby extends Component {
 
         this.curRoomId = roomId;
         svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = selColor;
-        // TODO: 跳转到 RoomScene
-
 
     }
 
