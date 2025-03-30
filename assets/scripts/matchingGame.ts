@@ -1,6 +1,7 @@
-import { _decorator, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
+import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
+import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -73,7 +74,7 @@ export class MatchingGame extends Component {
         buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
     }
 
-    initGameLogic() {   
+    initGameLogic() {
         this.matchingData = initMatchingData(12, 20, 30);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
