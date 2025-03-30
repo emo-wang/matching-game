@@ -10,7 +10,7 @@ const FONTSIZE = 18
 const lobbyData = {
     roomList: [
         {
-            id: 1,
+            id: 0,
             name: 'Room 1',
             playerCount: 2,
             maxPlayerCount: 6,
@@ -18,7 +18,7 @@ const lobbyData = {
             isPrivate: false,
         },
         {
-            id: 2,
+            id: 1,
             name: 'Room 2',
             playerCount: 1,
             maxPlayerCount: 6,
@@ -26,7 +26,7 @@ const lobbyData = {
             isPrivate: true,
         },
         {
-            id: 3,
+            id: 2,
             name: 'Room 2',
             playerCount: 5,
             maxPlayerCount: 6,

@@ -65,13 +65,12 @@ export class MatchingGame extends Component {
 
 
     addEventListeners() {
-        const buttons = this.node.getChildByName('buttons')
-        // 点击连线提示
-        buttons.getChildByName('hint').on(Node.EventType.TOUCH_END, this.onClickHint, this)
-        // 点击打乱桌面
-        buttons.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
-        // 重新开始
-        buttons.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
+        const btns = this.node.getChildByName('buttons')
+
+        btns.getChildByName('hint').on(Node.EventType.TOUCH_END, this.onClickHint, this)
+        btns.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
+        btns.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
+        btns.getChildByName('exit').on(Node.EventType.TOUCH_END, this.onClickExit, this)
     }
 
     initGameLogic() {
@@ -82,6 +81,10 @@ export class MatchingGame extends Component {
         this.timeLeft = TIMELIMIT
         this.setGameStatus(GAMESTATUS.PLAYING)
         this.checkTableStatus();
+    }
+
+    onClickExit(){
+        ConfirmDialog.show(undefined, '确认要退出房间吗？',undefined,undefined,()=>{director.loadScene('LobbyScene')})
     }
 
     restartGame() {
