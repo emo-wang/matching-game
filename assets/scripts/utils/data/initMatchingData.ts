@@ -18,34 +18,66 @@ export interface MatchingData {
 export function shuffleArray(array: any) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+        if (array[i] !== -1 && array[j] !== -1) {
+            [array[i], array[j]] = [array[j], array[i]];
+        }
     }
     return array;
 }
 
+// TODO: 目前只做这么多吧，主要是用于测试
+const typeMap = [
+    {
+        mapId: 0,
+        rows: 12,
+        cols: 20,
+        typeCount: 30,
+        totalCount: 240
+    }, {
+        mapId: 1,
+        rows: 12,
+        cols: 20,
+        typeCount: 30,
+        totalCount: 240 // 算一下
+    },
+]
+
 
 // 目前只创建w*h的连连看地图
 // TODO: 实现不同类型地图，typeNumber是生成不同地图的代码，但这里先默认是一种
-export function initMatchingData(rows: number = 10, cols: number = 15, typeNumber: number = 15): MatchingData {
-    const totalCount = cols * rows;
-    const typeCount = typeNumber
+export function initMatchingData(typeId: number = 0): MatchingData {
+    const { mapId, cols, rows, typeCount, totalCount } = typeMap[typeId] || { mapId: 0, cols: 12, rows: 20, typeCount: 30, totalCount: 160 };
     const typeArray = []
 
     if (totalCount % 2 === 1) throw new Error("totalCount must be even")
+    if (totalCount % (typeCount * 2) !== 0) throw new Error("totalCount must be divisible by typeCount * 2")
 
     const mapData = new Map<number, MatchingCell>();
 
-    // 假设现在有15中不同元素，并且数量相同，每个10个
-    // TODO: 根据不同的地图，分布是不同的，目前就当成是均匀分布
-
-    if (totalCount % (typeCount * 2) !== 0) throw new Error("totalCount must be divisible by typeCount * 2")
-    for (let i = 0; i < totalCount / typeCount; i++) {
-        for (let j = 0; j < typeCount; j++) {
-            typeArray.push(j);
-        }
+    switch (mapId) {
+        case 0:
+            // 没有间隙
+            for (let i = 0; i < totalCount / typeCount; i++) {
+                for (let j = 0; j < typeCount; j++) {
+                    typeArray.push(j);
+                }
+            }
+            shuffleArray(typeArray);
+            break;
+        case 1:
+            // 斜的分布，中间隔两行
+            for (let i = 0; i < totalCount / typeCount; i++) {
+                for (let j = 0; j < typeCount; j++) {
+                    typeArray.push(j);
+                }
+            }
+            shuffleArray(typeArray);
+            break;
+        default:
+            throw new Error(`Unsupported mapId: ${mapId}`);
     }
-    shuffleArray(typeArray);
-    // console.log(typeArray)
+
+
 
     for (let i = 0; i < totalCount; i++) {
         mapData.set(i, {

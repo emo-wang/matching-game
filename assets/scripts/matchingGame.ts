@@ -13,10 +13,6 @@ const GAMESTATUS = {
 
 const TIMELIMIT = 60
 
-const ROWS = 12
-const COLS = 20
-const TYPES = 30
-
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     matchingData: MatchingData = null // 页面显示数据
@@ -53,27 +49,26 @@ export class MatchingGame extends Component {
         });
     }
 
-    // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
-        let spriteFrames = globalThis?.assets?.matchingCellSpriteFrames
-        if (!spriteFrames) throw new Error("游戏资源未成功加载")
+        const spriteFrames = globalThis?.assets?.matchingCellSpriteFrames
+        if (!spriteFrames) {
+            resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
+                if (err) {
+                    console.error('文件夹加载出错', err);
+                }
 
-        this.spriteFrames = spriteFrames;
-        callback()
+                assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
+                assets.forEach((asset, index) => {
+                    this.spriteFrames.set(index, asset as SpriteFrame);
+                });
 
-        // 单独打开scene时使用
-        // resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
-        //     if (err) {
-        //         console.error('文件夹加载出错', err);
-        //     }
-
-        //     assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
-        //     assets.forEach((asset, index) => {
-        //         this.spriteFrames.set(index, asset as SpriteFrame);
-        //     });
-
-        //     if (callback) callback();
-        // });
+                if (callback) callback();
+            });
+        }
+        else {
+            this.spriteFrames = spriteFrames;
+            callback()
+        }
     }
 
 
@@ -88,17 +83,19 @@ export class MatchingGame extends Component {
 
     initOtherPlayersTable() {
         // TODO: 根据后台数据生成
-        let players = 5 // 5 other players
+        const playerCount = 5
         const tables = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('table'))
-        for (let i = 0; i < players; i++) {
-            this.matchingDatabyOthers[i] = initMatchingData(ROWS, COLS, TYPES)
-            this.generateUIbyData('otherplayers', tables[i], COLS, ROWS, this.matchingDatabyOthers[i].mapData)
+        const players = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('player'))
+        for (let i = 0; i < playerCount; i++) {
+            this.matchingDatabyOthers[i] = initMatchingData()
+            const {cols, rows, mapData} = this.matchingDatabyOthers[i]
+            this.generateUIbyData('otherplayers', tables[i], cols, rows, mapData)
+            players[i].getComponent(Label).string = `Player${i + 1}`
         }
-
     }
 
     initGameLogic() {
-        this.matchingData = initMatchingData(ROWS, COLS, TYPES);
+        this.matchingData = initMatchingData();
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -165,7 +162,7 @@ export class MatchingGame extends Component {
         this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
     }
 
-    // 其实没必要写一起，完全多此一举
+    // TODO: 优化
     generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
         // let table = this.node.getChildByName('table')
         let sample = type === 'self' ? this.node.getChildByName('matchingCell') : this.node.getChildByName('matchingCellbyOthers')
@@ -196,6 +193,11 @@ export class MatchingGame extends Component {
                 }
             }
         }
+    }
+
+    // TODO: 其他用户数据发生变化后更新UI
+    updateOthersTable() {
+
     }
 
     updateMatchingTable(keys: number[]) {
