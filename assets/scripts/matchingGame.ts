@@ -170,8 +170,10 @@ export class MatchingGame extends Component {
         let sample = type === 'self' ? this.node.getChildByName('matchingCell') : this.node.getChildByName('matchingCellbyOthers')
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
-        this.cellHeight = cellSize;
-        this.cellWidth = cellSize;
+        if (type === 'self') {
+            this.cellHeight = cellSize;
+            this.cellWidth = cellSize;
+        }
         table.children.forEach(child => child.destroy())
 
         for (let i = 0; i < rows; i++) {
@@ -188,7 +190,9 @@ export class MatchingGame extends Component {
                 cell.getChildByName('icon').getComponent(Sprite).spriteFrame = this.spriteFrames.get(cellData.typeId);
                 // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();// id用于测试 注意label被删掉了
                 cell.position = new Vec3(-tableWidth / 2 + cellSize / 2 + j * cellSize, tableHeight / 2 - cellSize / 2 - i * cellSize)
-                type === 'self' && cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
+                if (type === 'self') {
+                    cell.on(Node.EventType.TOUCH_END, (e: any) => this.onClickCell(e, cellData.id), this)
+                }
             }
         }
     }
@@ -206,7 +210,7 @@ export class MatchingGame extends Component {
     }
 
 
-    clickCell(e: any, mapId: number) {
+    onClickCell(e: any, mapId: number) {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
 
         const clickCell: MatchingCell = this.matchingData.mapData.get(mapId)
