@@ -1,4 +1,4 @@
-import { _decorator, director, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
+import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
 import { Toast } from '../prefabs/scripts/Toast';
 import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
 const { ccclass, property } = _decorator;
@@ -46,7 +46,35 @@ export class GameLobby extends Component {
     }
 
     start() {
-        this.initGameLobby();
+        this.loadGameResources(() => {
+            this.initGameLobby();
+        });
+
+    }
+
+    // TODO: 迁移到进入游戏
+    loadGameResources(callback: Function) {
+        if (globalThis.assets) {
+            callback()
+            return
+        }
+
+        resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
+            if (err) {
+                console.error('文件夹加载出错', err);
+            }
+
+            assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
+
+            assets.forEach((asset, index) => {
+                globalThis.assets = globalThis.assets || {}
+                globalThis.assets.matchingCellSpriteFrames = globalThis.assets.matchingCellSpriteFrames || new Map<number, SpriteFrame>;
+                globalThis.assets.matchingCellSpriteFrames.set(index, asset as SpriteFrame);
+            });
+            console.log('首次加载游戏资源成功', globalThis.assets)
+
+            if (callback) callback();
+        });
     }
 
     initGameLobby() {

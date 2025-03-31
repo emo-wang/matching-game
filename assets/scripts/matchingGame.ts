@@ -13,9 +13,14 @@ const GAMESTATUS = {
 
 const TIMELIMIT = 60
 
+const ROWS = 12
+const COLS = 20
+const TYPES = 30
+
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     matchingData: MatchingData = null // 页面显示数据
+    matchingDatabyOthers: MatchingData[] = new Array<MatchingData>(5);
     matchingArray = null // 用于处理逻辑
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
@@ -43,24 +48,32 @@ export class MatchingGame extends Component {
     start() {
         this.loadGameResources(() => {
             this.initGameLogic();
+            this.initOtherPlayersTable();
             this.addEventListeners();
         });
     }
 
     // TODO: resources加载移到进入游戏时
     loadGameResources(callback: Function) {
-        resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
-            if (err) {
-                console.error('文件夹加载出错', err);
-            }
+        let spriteFrames = globalThis?.assets?.matchingCellSpriteFrames
+        if (!spriteFrames) throw new Error("游戏资源未成功加载")
 
-            assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
-            assets.forEach((asset, index) => {
-                this.spriteFrames.set(index, asset as SpriteFrame);
-            });
+        this.spriteFrames = spriteFrames;
+        callback()
 
-            if (callback) callback();
-        });
+        // 单独打开scene时使用
+        // resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
+        //     if (err) {
+        //         console.error('文件夹加载出错', err);
+        //     }
+
+        //     assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
+        //     assets.forEach((asset, index) => {
+        //         this.spriteFrames.set(index, asset as SpriteFrame);
+        //     });
+
+        //     if (callback) callback();
+        // });
     }
 
 
@@ -73,8 +86,19 @@ export class MatchingGame extends Component {
         btns.getChildByName('exit').on(Node.EventType.TOUCH_END, this.onClickExit, this)
     }
 
+    initOtherPlayersTable() {
+        // TODO: 根据后台数据生成
+        let players = 5 // 5 other players
+        const tables = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('table'))
+        for (let i = 0; i < players; i++) {
+            this.matchingDatabyOthers[i] = initMatchingData(ROWS, COLS, TYPES)
+            this.generateUIbyData('otherplayers', tables[i], COLS, ROWS, this.matchingDatabyOthers[i].mapData)
+        }
+
+    }
+
     initGameLogic() {
-        this.matchingData = initMatchingData(12, 20, 30);
+        this.matchingData = initMatchingData(ROWS, COLS, TYPES);
         // console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
@@ -83,8 +107,8 @@ export class MatchingGame extends Component {
         this.checkTableStatus();
     }
 
-    onClickExit(){
-        ConfirmDialog.show(undefined, '确认要退出房间吗？',undefined,undefined,()=>{director.loadScene('LobbyScene')})
+    onClickExit() {
+        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined, () => { director.loadScene('LobbyScene') })
     }
 
     restartGame() {
@@ -138,12 +162,12 @@ export class MatchingGame extends Component {
 
     initGameTable() {
         const { cols, rows, mapData } = this.matchingData
-        this.generateUIbyData(cols, rows, mapData)
+        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
     }
 
-    generateUIbyData(cols: number, rows: number, mapData: Map<number, MatchingCell>) {
-        let table = this.node.getChildByName('table')
-        let sample = this.node.getChildByName('matchingCell')
+    generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
+        // let table = this.node.getChildByName('table')
+        let sample = type === 'self' ? this.node.getChildByName('matchingCell') : this.node.getChildByName('matchingCellbyOthers')
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
         this.cellHeight = cellSize;
@@ -162,9 +186,9 @@ export class MatchingGame extends Component {
                 cell.name = cellData.id.toString();
 
                 cell.getChildByName('icon').getComponent(Sprite).spriteFrame = this.spriteFrames.get(cellData.typeId);
-                // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();// id用于测试
+                // cell.getChildByName('label').getComponent(Label).string = cellData.typeId.toString();// id用于测试 注意label被删掉了
                 cell.position = new Vec3(-tableWidth / 2 + cellSize / 2 + j * cellSize, tableHeight / 2 - cellSize / 2 - i * cellSize)
-                cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
+                type === 'self' && cell.on(Node.EventType.TOUCH_END, (e: any) => this.clickCell(e, cellData.id), this)
             }
         }
     }
@@ -243,7 +267,7 @@ export class MatchingGame extends Component {
         this.lastClickedCell = null
         this.matchingLink = []
         this.initMatchingArray()
-        this.generateUIbyData(cols, rows, mapData)
+        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
         // console.log('重置状态！', mapData, this.matchingArray)
 
         if (!this.checkTableCanMatch()) {
