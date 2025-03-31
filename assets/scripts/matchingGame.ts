@@ -165,6 +165,7 @@ export class MatchingGame extends Component {
         this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
     }
 
+    // 其实没必要写一起，完全多此一举
     generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
         // let table = this.node.getChildByName('table')
         let sample = type === 'self' ? this.node.getChildByName('matchingCell') : this.node.getChildByName('matchingCellbyOthers')
