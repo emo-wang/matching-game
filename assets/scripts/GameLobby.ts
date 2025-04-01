@@ -1,5 +1,4 @@
 import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
-import { Toast } from '../prefabs/scripts/Toast';
 import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
 const { ccclass, property } = _decorator;
 
