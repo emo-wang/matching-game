@@ -2,6 +2,7 @@ import { _decorator, director, resources, Component, UITransform, instantiate, V
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
+import deepClone from './utils/deepClone';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -87,7 +88,8 @@ export class MatchingGame extends Component {
         const tables = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('table'))
         const players = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('player'))
         for (let i = 0; i < playerCount; i++) {
-            this.matchingDatabyOthers[i] = initMatchingData()
+            // WARNING: 这里没有深拷贝的，考虑到也就是用于生成UI，更新UI也只是根据节点顺序，不会有后续牵连
+            this.matchingDatabyOthers[i] = this.matchingData
             const {cols, rows, mapData} = this.matchingDatabyOthers[i]
             this.generateUIbyData('otherplayers', tables[i], cols, rows, mapData)
             players[i].getComponent(Label).string = `Player${i + 1}`
@@ -95,8 +97,8 @@ export class MatchingGame extends Component {
     }
 
     initGameLogic() {
-        this.matchingData = initMatchingData();
-        // console.log('matchingData', this.matchingData)
+        this.matchingData = initMatchingData(1);
+        console.log('matchingData', this.matchingData)
         this.initGameTable();
         this.initMatchingArray();
         this.timeLeft = TIMELIMIT
@@ -146,7 +148,7 @@ export class MatchingGame extends Component {
                 }
             }
         }
-        // console.log('生成matchingArray', this.matchingArray)
+        console.log('生成matchingArray', this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
