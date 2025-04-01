@@ -14,7 +14,11 @@ export interface MatchingData {
     typeCount: number,
 }
 
-// 洗牌算法
+/**
+ * 洗牌算法（不包括数组中为-1的元素）
+ * @param array 
+ * @returns 
+ */
 export function shuffleArray(array: any) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -25,29 +29,26 @@ export function shuffleArray(array: any) {
     return array;
 }
 
-// TODO: 目前只做这么多吧，主要是用于测试
 const typeMap = [
     {
         mapId: 0,
         rows: 12,
         cols: 20,
-        typeCount: 30,
-        totalCount: 240
+        typeCount: 30, // 有多少不同的格子
+        totalCount: 240 // 格子总数
     }, {
         mapId: 1,
         rows: 11,
         cols: 19,
         typeCount: 26,
-        totalCount: 104 // 算一下
+        totalCount: 104
     },
 ]
 
 
-// 目前只创建w*h的连连看地图
-// TODO: 实现不同类型地图，typeNumber是生成不同地图的代码，但这里先默认是一种
 export function initMatchingData(typeId: number = 0): MatchingData {
     const { mapId, cols, rows, typeCount, totalCount } = typeMap[typeId] || { mapId: 0, cols: 12, rows: 20, typeCount: 30, totalCount: 160 };
-    // 这个array怎么是一维的？因为要shuffleArray所以必须是一维的，不然也要转换
+    // 由格子种类组成的一维数组
     let typeArray = []
 
     if (totalCount % 2 === 1) throw new Error("totalCount must be even")
@@ -66,7 +67,7 @@ export function initMatchingData(typeId: number = 0): MatchingData {
             shuffleArray(typeArray);
             break;
         case 1:
-            // 斜的分布，中间隔两行，这里的0，1，2，3...代表个数，typeArray的话是代表type，需要转换
+            // 斜的分布，中间隔两行，这里的0，1，2，3...是id，typeArray的话是代表typeId，需要进行转换
             const arr = [
                 [0, -1, -1, 1, 2, -1, -1, 3, 4, -1, -1, 5, 6, -1, -1, 7, 8, -1, -1],
                 [-1, -1, 9, 10, -1, -1, 11, 12, -1, -1, 13, 14, -1, -1, 15, 16, -1, -1, 17],
@@ -91,7 +92,6 @@ export function initMatchingData(typeId: number = 0): MatchingData {
                 }
             }
             shuffleArray(typeArray);
-            console.log(typeArray)
             break;
         default:
             throw new Error(`Unsupported mapId: ${mapId}`);
