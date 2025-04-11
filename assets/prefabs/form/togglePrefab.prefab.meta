@@ -2,12 +2,12 @@
   "ver": "1.1.50",
   "importer": "prefab",
   "imported": true,
-  "uuid": "8d5b5622-8192-411f-a3bc-8181204c53d1",
+  "uuid": "8ee9d898-a46d-48f7-a46e-ded8145c2b55",
   "files": [
     ".json"
   ],
   "subMetas": {},
   "userData": {
-    "syncNodeName": "Toast"
+    "syncNodeName": "togglePrefab"
   }
 }

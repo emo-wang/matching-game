@@ -1,8 +1,7 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
-import { ConfirmDialog } from '../prefabs/scripts/ConfirmDialog';
-import deepClone from './utils/deepClone';
+import { ConfirmDialog } from './utils/prefab/confirmDialog';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -18,7 +17,7 @@ const TIMELIMIT = 60
 export class MatchingGame extends Component {
     matchingData: MatchingData = null // 页面显示数据
     matchingDatabyOthers: MatchingData[] = new Array<MatchingData>(5);
-    matchingArray = null // 用于处理逻辑
+    matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
@@ -52,24 +51,26 @@ export class MatchingGame extends Component {
 
     loadGameResources(callback: Function) {
         const spriteFrames = globalThis?.assets?.matchingCellSpriteFrames
-        if (!spriteFrames) {
-            resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
-                if (err) {
-                    console.error('文件夹加载出错', err);
-                }
 
-                assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
-                assets.forEach((asset, index) => {
-                    this.spriteFrames.set(index, asset as SpriteFrame);
-                });
-
-                if (callback) callback();
-            });
-        }
-        else {
+        if (spriteFrames) {
             this.spriteFrames = spriteFrames;
-            callback()
+            if (callback) callback();
+            return
         }
+
+        resources.loadDir('sprites/matchingicons', SpriteFrame, (err, assets) => {
+            if (err) {
+                console.error('文件夹加载出错', err);
+            }
+
+            assets.sort((a, b) => parseInt(a.name) - parseInt(b.name)); // 排序
+            assets.forEach((asset, index) => {
+                this.spriteFrames.set(index, asset as SpriteFrame);
+            });
+
+            if (callback) callback();
+        });
+
     }
 
 
@@ -90,7 +91,7 @@ export class MatchingGame extends Component {
         for (let i = 0; i < playerCount; i++) {
             // WARNING: 这里没有深拷贝的，考虑到也就是用于生成UI，更新UI也只是根据节点顺序，不会有后续牵连
             this.matchingDatabyOthers[i] = this.matchingData
-            const {cols, rows, mapData} = this.matchingDatabyOthers[i]
+            const { cols, rows, mapData } = this.matchingDatabyOthers[i]
             this.generateUIbyData('otherplayers', tables[i], cols, rows, mapData)
             players[i].getComponent(Label).string = `Player${i + 1}`
         }

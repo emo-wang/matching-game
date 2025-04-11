@@ -229,7 +229,7 @@
     "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 23.6015625,
+    "_actualFontSize": 26.5546875,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -388,7 +388,7 @@
     "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 23.6015625,
+    "_actualFontSize": 26.5546875,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -661,7 +661,7 @@
     "_string": "button",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 23.6015625,
+    "_actualFontSize": 26.5546875,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -1033,7 +1033,7 @@
     "_string": "button",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 23.6015625,
+    "_actualFontSize": 26.5546875,
     "_fontSize": 20,
     "_fontFamily": "Arial",
     "_lineHeight": 40,
@@ -1477,7 +1477,7 @@
     "fileId": "a6nMALBf5EHYqNeuWawnwb"
   },
   {
-    "__type__": "cea21zRdXJIqLB18B+wBM76",
+    "__type__": "db3c8jhGZ5JQ4jK7Xj5uJ/b",
     "_name": "",
     "_objFlags": 0,
     "__editorExtras__": {},
@@ -1504,7 +1504,7 @@
   },
   {
     "__type__": "cc.CompPrefabInfo",
-    "fileId": "aamcFDHyhLxIAdAdhyw9R2"
+    "fileId": "be2dl4fAJJsZtWgBqXrZHw"
   },
   {
     "__type__": "cc.PrefabInfo",

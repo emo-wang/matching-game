@@ -4,5 +4,6 @@
   /* Add your custom configuration here. */
   "compilerOptions": {
     "strict": false,
+    "lib": ["dom", "es2017"], // ← 这里添加 es2017（或更高）
   },
 }
