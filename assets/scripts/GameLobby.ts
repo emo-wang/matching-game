@@ -1,6 +1,7 @@
-import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite } from 'cc';
+import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, EventTouch } from 'cc';
 import { ConfirmDialog } from './utils/prefab/confirmDialog';
 import fetchAPI from './utils/fetch';
+import { FormGenerator } from './utils/prefab/formGenerator';
 const { ccclass, property } = _decorator;
 
 // TODO: 从配置中获取
@@ -69,13 +70,27 @@ export class GameLobby extends Component {
         btns.getChildByName('createRoom').on(Node.EventType.TOUCH_END, this.onClickCreateRoom, this)
         btns.getChildByName('joinRoom').on(Node.EventType.TOUCH_END, this.onClickJoinRoom, this)
         btns.getChildByName('refresh').on(Node.EventType.TOUCH_END, this.onClickRefresh, this)
+
+        const formBtns = this.node.getChildByName('CreateRoom').getChildByName('btns')
+        formBtns.getChildByName('confirm').on(Node.EventType.TOUCH_END, this.onClickConfirmCreateRoom, this)
+        formBtns.getChildByName('cancel').on(Node.EventType.TOUCH_END, this.onClickCancelCreateRoom, this)
     }
 
-    onClickCreateRoom() { }
+    onClickCreateRoom(e: Event) {
+        this.node.getChildByName('CreateRoom').active = true
+    }
 
-    onClickJoinRoom() {
+    onClickJoinRoom(e: Event) {
         if (this.curRoomId === null) return
         ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.curRoomId}`, undefined, undefined, this.joinRoom, undefined)
+    }
+
+    onClickConfirmCreateRoom(){
+
+    }
+
+    onClickCancelCreateRoom(){
+        this.node.getChildByName('CreateRoom').active = false
     }
 
     joinRoom() {
@@ -87,7 +102,7 @@ export class GameLobby extends Component {
     generateUIbyLobbyData() {
         if (this.roomList.length === 0) return;
 
-        // show data
+        // display column
         const displayedTitle = ['room name', 'playerCount', 'maxPlayerCount', 'status', 'isPrivate']
         const displayedData = this.roomList.map((room: any) => ({
             name: room.name,
@@ -125,10 +140,11 @@ export class GameLobby extends Component {
         roomSample.active = false
     }
 
+    // WARN: 目前表单不是根据schema自动生成的，需要手动修改
     generateFormbyLobbyData() {
         if (this.roomList.length === 0) return;
 
-        const form = this.node.getChildByName('CreateRoomForm')
+        let formNode = this.node.getChildByName('CreateRoom').getChildByName('CreateRoomForm')
         interface FormField {
             label: string;
             key: string;
@@ -139,14 +155,17 @@ export class GameLobby extends Component {
 
         const formSchema: FormField[] = [
             { label: '房间名', key: 'name', type: 'text', required: true },
-            { label: '最大玩家数量', key: 'maxPlayerCount', type: 'number' ,required:false,defaultValue:6},
+            { label: '最大玩家数量', key: 'maxPlayerCount', type: 'number', required: false, defaultValue: 6 },
             { label: '是否为私密房间', key: 'isPrivate', type: 'toggle', required: true },
             { label: '地图类型', key: 'mapType', type: 'toggle', required: true },
-          ];
-        
+        ];
+
+        const formGen = formNode.getComponent(FormGenerator);
+        formGen.generateForm(formSchema);
+
     }
 
-    clickRoom(e: any, roomIndex: number) {
+    clickRoom(e: Event, roomIndex: number) {
         // 这里的roomId实际上是index
         // console.log('点击了房间:', roomId)
         const selColor = new Color(255, 182, 193, 140);

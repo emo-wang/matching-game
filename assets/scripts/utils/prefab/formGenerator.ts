@@ -22,15 +22,16 @@ export class FormGenerator extends Component {
     @property(Prefab) editBoxPrefab: Prefab = null!;
     @property(Prefab) togglePrefab: Prefab = null!;
     @property(Node) contentRoot: Node = null!;
-
+    // private formSchema: FormSchemaItem[] = [];
     private formData: Record<string, EditBox | Toggle> = {};
 
     start() {
-        const schema = this.getSchema();
-        this.generateForm(schema);
+        // const schema = this.getSchema();
+        // this.generateForm(schema);
     }
 
     getSchema(): FormSchemaItem[] {
+        // sample
         return [
             { label: '用户名', key: 'username', type: 'text', required: true, defaultValue: 'Player' },
             { label: '年龄', key: 'age', type: 'number' },
@@ -40,29 +41,29 @@ export class FormGenerator extends Component {
 
     generateForm(schema: FormSchemaItem[]) {
         for (const field of schema) {
-            const row = instantiate(this.rowPrefab);
+            const row = instantiate(this.rowPrefab).getChildByName('row')!;
 
             // 创建 label
-            const label = instantiate(this.labelPrefab);
+            const label = instantiate(this.labelPrefab).getChildByName('Label')!;
             const labelComp = label.getComponent(Label)!;
             labelComp.string = field.label + (field.required ? ' *' : '');
 
             // 创建输入组件
             let inputNode: Node;
             if (field.type === 'toggle') {
-                inputNode = instantiate(this.togglePrefab);
+                inputNode = instantiate(this.togglePrefab).getChildByName('Toggle')!;
                 inputNode.getComponent(Toggle)!.isChecked = field.defaultValue ?? false;
                 this.formData[field.key] = inputNode.getComponent(Toggle)!;
             } else {
                 inputNode = instantiate(this.editBoxPrefab);
-                const editBox = inputNode.getComponent(EditBox)!;
+                const editBox = inputNode.getChildByName('EditBox').getComponent(EditBox)!;
                 editBox.string = field.defaultValue ?? '';
                 this.formData[field.key] = editBox;
             }
 
             // 添加到行
-            row.addChild(label);
-            row.addChild(inputNode);
+            row.getChildByName('rowLeft').addChild(label);
+            row.getChildByName('rowRight').addChild(inputNode);
 
             // 添加到面板
             this.contentRoot.addChild(row);
