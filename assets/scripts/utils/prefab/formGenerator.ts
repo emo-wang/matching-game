@@ -5,14 +5,20 @@ import {
 
 const { ccclass, property } = _decorator;
 
-type FieldType = 'text' | 'number' | 'toggle';
+export type FieldType = 'text' | 'number' | 'toggle' | 'toggleGroup';
+interface OptionItem<T = string> {
+    label: string;
+    value: T;
+}
 
-interface FormSchemaItem {
+export interface FormSchemaItem {
     label: string;
     key: string;
     type: FieldType;
     required?: boolean;
     defaultValue?: any;
+    options?: OptionItem<any>[];
+
 }
 
 @ccclass('FormGenerator')
@@ -21,8 +27,10 @@ export class FormGenerator extends Component {
     @property(Prefab) labelPrefab: Prefab = null!;
     @property(Prefab) editBoxPrefab: Prefab = null!;
     @property(Prefab) togglePrefab: Prefab = null!;
+    @property(Prefab) toggleGroupPrefab: Prefab = null!;
+    @property(Prefab) editNumberPrefab: Prefab = null!;
     @property(Node) contentRoot: Node = null!;
-    // private formSchema: FormSchemaItem[] = [];
+    private formSchema: FormSchemaItem[] = [];
     private formData: Record<string, EditBox | Toggle> = {};
 
     start() {
@@ -31,12 +39,11 @@ export class FormGenerator extends Component {
     }
 
     getSchema(): FormSchemaItem[] {
-        // sample
-        return [
-            { label: '用户名', key: 'username', type: 'text', required: true, defaultValue: 'Player' },
-            { label: '年龄', key: 'age', type: 'number' },
-            { label: '是否订阅', key: 'subscribed', type: 'toggle', defaultValue: true }
-        ];
+        return this.formSchema
+    }
+
+    setSchema(schema: FormSchemaItem[]) {
+        this.formSchema = schema;
     }
 
     generateForm(schema: FormSchemaItem[]) {

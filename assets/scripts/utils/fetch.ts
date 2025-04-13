@@ -15,7 +15,7 @@ async function fetchAPI(endpoint: string, options: FetchOptions = { method: 'GET
     const config: RequestInit = {
         method: options.method,
         headers: {
-            'Content-Type': 'Authorization',
+            'Content-Type': 'application/json',
             ...options.headers
         },
         mode: options.mode,

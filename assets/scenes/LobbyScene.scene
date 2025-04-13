@@ -2714,6 +2714,14 @@
       "__uuid__": "8ee9d898-a46d-48f7-a46e-ded8145c2b55",
       "__expectedType__": "cc.Prefab"
     },
+    "toggleGroupPrefab": {
+      "__uuid__": "f1ff62c5-f7f7-4b40-a390-27f28bd6bb2e",
+      "__expectedType__": "cc.Prefab"
+    },
+    "editNumberPrefab": {
+      "__uuid__": "4b727ac2-ab24-4395-acf6-7fda9d449273",
+      "__expectedType__": "cc.Prefab"
+    },
     "contentRoot": {
       "__id__": 66
     },
