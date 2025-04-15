@@ -1,4 +1,4 @@
-import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, EditBox } from 'cc';
+import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, ToggleContainer, EditBox } from 'cc';
 import { ConfirmDialog } from './utils/prefab/confirmDialog';
 import fetchAPI from './utils/func/fetch';
 import { DataManager } from './utils/func/dataManager';
@@ -23,16 +23,20 @@ export class GameLobby extends Component {
     roomList = []
     curRoomId: number = null // 这个是index，不是指房间id
     room_id: string = '' // 房间uuid
-    createRoomForm: CreateRoomSchema
+    user_id: string = '' // 用户uuid
 
-    // createroom form nodes(绑定的是input(editbox)， toggle)
-    @property(Node) private roomFormNode: Node = null!;
-    @property(Node) private roomNameNode: Node = null!;
-    @property(Node) private maxPlayerCountNode: Node = null!;
-    @property(Node) private isPrivateNode: Node = null!;
+    // createroom form nodes
+    createRoomForm: CreateRoomSchema
+    @property(EditBox) private roomNameInput: EditBox = null!;
+    @property(EditBox) private maxPlayerCountInput: EditBox = null!;
+    @property(Toggle) private isPrivateToggle: Toggle = null!;
     @property(Node) private mapTypeNode: Node = null!;
-    @property(Node) private passwordNode: Node = null!;
-    @property(Node) private errorMsgNode: Node = null!;
+    @property(EditBox) private passwordInput: EditBox = null!;
+    @property(Label) private errorMsgInput: Label = null!;
+
+    // user info nodes
+    @property(EditBox) private userNameInput: EditBox = null!;
+    @property(EditBox) private userPasswordInput: EditBox = null!;
 
     onLoad() {
         console.log(this.node, 'GameLobby 场景加载成功')
@@ -42,7 +46,6 @@ export class GameLobby extends Component {
         this.loadGameResources(() => {
             this.initUserInfo();
             this.initGameLobby();
-            this.genCreateRoomForm()
         });
     }
 
@@ -73,100 +76,11 @@ export class GameLobby extends Component {
         });
     }
 
-    async getLobby(): Promise<any> {
-        return await fetchAPI('/lobbies');
-    }
-
-    async postLobby(body: any): Promise<any> {
-        return await fetchAPI('/lobbies', { method: 'POST', body });
-    }
 
     async initGameLobby() {
         const res = await this.getLobby()
         this.roomList = res
-        this.addEventListener()
         this.genUIbyLobbyData()
-    }
-
-    addEventListener() {
-    }
-
-    onClickCreateRoom(e: Event) {
-        this.node.getChildByName('CreateRoom').active = true
-    }
-
-    onClickJoinRoom(e: Event) {
-        if (!this.room_id) return
-        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.curRoomId}`, undefined, undefined, () => this.joinRoom(this.room_id), undefined)
-    }
-
-    async onClickConfirmCreateRoom() {
-
-        const roomName = this.roomNameNode.getComponent(EditBox).string
-        const maxPlayerCount = Number(this.maxPlayerCountNode.getComponent(EditBox).string)
-        const isPrivate = this.isPrivateNode.getChildByName('Toggle1')!.getComponent(Toggle)!.isChecked
-        let mapType = 1
-        this.mapTypeNode.children.forEach((item, index) => {
-            if (item.getComponent(Toggle).isChecked) {
-                mapType = index + 1
-            }
-        })
-        const password = this.passwordNode.getComponent(EditBox).string
-
-        // validate
-        if (!roomName) {
-            this.errorMsgNode.getComponent(Label).string = '房间名不能为空'
-            return
-        }
-
-        if (isPrivate && !password) {
-            this.errorMsgNode.getComponent(Label).string = '私密房间需要设置房间密码'
-            return
-        }
-        
-        this.errorMsgNode.getComponent(Label).string = ''
-
-        let roomInfo: CreateRoomSchema = {
-            roomName,
-            roomOwnerId: 'Nora',
-            maxPlayerCount,
-            isPrivate,
-            mapType,
-            password
-        }
-
-        const res = await this.postLobby(roomInfo)
-        this.node.getChildByName('CreateRoom').active = false
-
-        if (!res._id) return
-        this.room_id = res._id
-        this.joinRoom(this.room_id)
-    }
-
-    onIsPrivateToggleChanged(toggle: Toggle, customEventData: string) {
-        if (customEventData === 'yes') {
-            // console.log("yes, 私密房间");
-            this.passwordNode.parent.active = true
-        } else {
-            // console.log("no, 非私密房间");
-            this.passwordNode.parent.active = false
-        }
-    }
-
-    onClickCancelCreateRoom() {
-        this.node.getChildByName('CreateRoom').active = false
-    }
-
-    onClickRefresh() { }
-
-    onClickLogIn() {
-        // TODO: 跳转到登录界面
-    }
-
-    onClickLogOut() {
-        // TODO: 跳转到登出界面
-        // TODO: 移除本地数据
-        // TODO: 跳转到首页
     }
 
     joinRoom(room_id: string) {
@@ -223,9 +137,6 @@ export class GameLobby extends Component {
 
     }
 
-    genCreateRoomForm() {
-
-    }
 
     /**
      * 
@@ -253,4 +164,105 @@ export class GameLobby extends Component {
         svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = selColor;
     }
 
+    // ————————————onclick事件函数———————————
+
+    onClickCreateRoom(e: Event) {
+        this.node.getChildByName('CreateRoom').active = true
+    }
+
+    onClickJoinRoom(e: Event) {
+        if (!this.room_id) return
+        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.curRoomId}`, undefined, undefined, () => this.joinRoom(this.room_id), undefined)
+    }
+
+    async onClickConfirmCreateRoom() {
+
+        // get form data
+        const roomName = this.roomNameInput.string
+        const maxPlayerCount = Number(this.maxPlayerCountInput.string)
+        const isPrivate = this.isPrivateToggle.isChecked
+        let mapType = 1
+        this.mapTypeNode.children.forEach((item, index) => {
+            if (item.getComponent(Toggle).isChecked) {
+                mapType = index + 1
+            }
+        })
+        const password = this.passwordInput.string
+
+        // validate form
+        if (!roomName) {
+            this.errorMsgInput.string = '房间名不能为空'
+            return
+        }
+
+        if (isPrivate && !password) {
+            this.errorMsgInput.string = '私密房间需要设置房间密码'
+            return
+        }
+
+        this.errorMsgInput.string = ''
+
+        // send to server
+        let roomInfo: CreateRoomSchema = {
+            roomName,
+            roomOwnerId: 'Nora',
+            maxPlayerCount,
+            isPrivate,
+            mapType,
+            password
+        }
+
+        const res = await this.postLobby(roomInfo)
+        this.node.getChildByName('CreateRoom').active = false
+
+        if (!res._id) return
+        this.room_id = res._id
+        this.joinRoom(this.room_id)
+    }
+
+    onClickCancelCreateRoom() {
+        this.node.getChildByName('CreateRoom').active = false
+    }
+
+    onIsPrivateToggleChanged(toggle: Toggle, customEventData: string) {
+        if (customEventData === 'yes') {
+            this.passwordInput.node.parent.active = true
+        } else {
+            this.passwordInput.node.parent.active = false
+        }
+    }
+
+    onClickRefresh() { }
+
+    onClickLogIn() {
+        this.node.getChildByName('LogInForm').active = true
+    }
+
+    onClickConfirmLogIn() {
+        console.log('确认登录', this.userNameInput.string, this.userPasswordInput.string)
+    }
+
+    onClickCancelLogIn() {
+        this.node.getChildByName('LogInForm').active = false
+    }
+
+    onClickLogOut() {
+        // if (!this.user_id) return
+        const callback = () => {}
+        ConfirmDialog.show(`确定退出这个账号吗？`, `用户id: ${this.user_id}`, undefined, undefined, callback, undefined)
+    }
+
+    // —————————————————————————————————————
+
+
+    // ————————————获取接口数据——————————————
+    async getLobby(): Promise<any> {
+        return await fetchAPI('/lobbies');
+    }
+
+    async postLobby(body: any): Promise<any> {
+        return await fetchAPI('/lobbies', { method: 'POST', body });
+    }
+
+    // —————————————————————————————————————
 }
