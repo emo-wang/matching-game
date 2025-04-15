@@ -2,6 +2,7 @@ import { _decorator, director, resources, Component, UITransform, instantiate, V
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from './utils/prefab/confirmDialog';
+import { DataManager } from './utils/func/dataManager';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -10,6 +11,7 @@ const GAMESTATUS = {
     WIN: 'win',
     LOSE: 'lose'
 }
+
 
 const TIMELIMIT = 60
 
@@ -38,7 +40,8 @@ export class MatchingGame extends Component {
     }
 
     onLoad() {
-        console.log(this.node, 'MatchingGame 场景加载成功');
+        const roomInfo = DataManager.instance.get('roomInfo');
+        console.log('进入房间：', roomInfo, this.node);
     }
 
     start() {
@@ -72,7 +75,6 @@ export class MatchingGame extends Component {
         });
 
     }
-
 
     addEventListeners() {
         const btns = this.node.getChildByName('buttons')
