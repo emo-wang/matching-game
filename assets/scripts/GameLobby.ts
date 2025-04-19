@@ -25,6 +25,7 @@ export class GameLobby extends Component {
     room_id: string = '' // 房间uuid
     user_id: string = '' // 用户uuid
 
+
     // createroom form nodes
     createRoomForm: CreateRoomSchema
     @property(EditBox) private roomNameInput: EditBox = null!;
@@ -32,11 +33,17 @@ export class GameLobby extends Component {
     @property(Toggle) private isPrivateToggle: Toggle = null!;
     @property(Node) private mapTypeNode: Node = null!;
     @property(EditBox) private passwordInput: EditBox = null!;
-    @property(Label) private errorMsgInput: Label = null!;
+    @property(Label) private CreateRoomErrorMsgInput: Label = null!;
 
     // user info nodes
+    loginMode: string = 'login' // create/login
+    @property(Node) private createNewAccountNode: Node = null!;
+    @property(Node) private BackToLoginNode: Node = null!;
+    @property(Label) private title: Label = null!;
     @property(EditBox) private userNameInput: EditBox = null!;
     @property(EditBox) private userPasswordInput: EditBox = null!;
+    @property(EditBox) private userEmailInput: EditBox = null!;
+    @property(Label) private loginErrorMsgInput: Label = null!;
 
     onLoad() {
         console.log(this.node, 'GameLobby 场景加载成功')
@@ -191,16 +198,16 @@ export class GameLobby extends Component {
 
         // validate form
         if (!roomName) {
-            this.errorMsgInput.string = '房间名不能为空'
+            this.CreateRoomErrorMsgInput.string = '房间名不能为空'
             return
         }
 
         if (isPrivate && !password) {
-            this.errorMsgInput.string = '私密房间需要设置房间密码'
+            this.CreateRoomErrorMsgInput.string = '私密房间需要设置房间密码'
             return
         }
 
-        this.errorMsgInput.string = ''
+        this.CreateRoomErrorMsgInput.string = ''
 
         // send to server
         let roomInfo: CreateRoomSchema = {
@@ -234,22 +241,98 @@ export class GameLobby extends Component {
 
     onClickRefresh() { }
 
+
+    // ———————————————用户相关———————————————
+
     onClickLogIn() {
         this.node.getChildByName('LogInForm').active = true
     }
 
-    onClickConfirmLogIn() {
-        console.log('确认登录', this.userNameInput.string, this.userPasswordInput.string)
+    // TODO: 后端需要返回验证码
+    async onClickConfirmLogIn() {
+        console.log('确认登录/或者创建新账户', this.userNameInput.string, this.userPasswordInput.string, this.userEmailInput.string)
+        // TODO： 前端做正则校验
+        if (!this.userNameInput.string || !this.userPasswordInput.string) {
+            this.loginErrorMsgInput.string = '用户名和密码不能为空'
+        }
+
+        // 创建新用户
+        if (this.loginMode === 'create') {
+            if (!this.userEmailInput.string) {
+                this.loginErrorMsgInput.string = '邮箱不能为空'
+                return
+            }
+            else {
+                const res = await this.createUser({
+                    userName: this.userNameInput.string,
+                    password: this.userPasswordInput.string,
+                    email: this.userEmailInput.string
+                })
+                if (!res._id) {
+                    this.loginErrorMsgInput.string = '创建新用户失败，请稍后重试！'
+                    return
+                }
+                else {
+                    this.resetLoginForm()
+                }
+            }
+        }
+
+        // 登录用户
+        else {
+            const res = await this.login({
+                userName: this.userNameInput.string,
+                password: this.userPasswordInput.string
+            })
+            if (!res?.user?._id) {
+                this.loginErrorMsgInput.string = '用户名或密码错误，请重试！'
+                return
+            }
+            else {
+                // TODO: 用户登录成功
+                this.onClickCancelLogIn()
+            }
+        }
     }
 
     onClickCancelLogIn() {
         this.node.getChildByName('LogInForm').active = false
+        this.resetLoginForm()
     }
 
     onClickLogOut() {
         // if (!this.user_id) return
-        const callback = () => {}
+        const callback = () => { }
         ConfirmDialog.show(`确定退出这个账号吗？`, `用户id: ${this.user_id}`, undefined, undefined, callback, undefined)
+    }
+
+    onClickCreateNewAccount() {
+        this.title.string = 'Create New Account'
+        this.userEmailInput.node.parent.active = true
+        this.loginMode = 'create'
+        this.createNewAccountNode.active = false
+        this.BackToLoginNode.active = true
+        this.resetLoginInput()
+    }
+
+    onClickBackToLogin() {
+        this.resetLoginForm()
+    }
+
+    resetLoginInput() {
+        this.loginErrorMsgInput.string = ''
+        this.userEmailInput.string = ''
+        this.userNameInput.string = ''
+        this.userPasswordInput.string = ''
+    }
+
+    resetLoginForm() {
+        this.title.string = 'Login'
+        this.userEmailInput.node.parent.active = false
+        this.loginMode = 'login'
+        this.createNewAccountNode.active = true
+        this.BackToLoginNode.active = false
+        this.resetLoginInput()
     }
 
     // —————————————————————————————————————
@@ -262,6 +345,14 @@ export class GameLobby extends Component {
 
     async postLobby(body: any): Promise<any> {
         return await fetchAPI('/lobbies', { method: 'POST', body });
+    }
+
+    async createUser(body: any): Promise<any> {
+        return await fetchAPI('/users', { method: 'POST', body })
+    }
+
+    async login(body: any): Promise<any> {
+        return await fetchAPI('/auth/login', { method: 'POST', body })
     }
 
     // —————————————————————————————————————
