@@ -1,8 +1,8 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
-import { ConfirmDialog } from './utils/prefab/confirmDialog';
-import { DataManager } from './utils/func/dataManager';
+import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
+import { DataManager } from './utils/functions/dataManager';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {

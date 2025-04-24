@@ -1,7 +1,8 @@
-import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, ToggleContainer, EditBox } from 'cc';
-import { ConfirmDialog } from './utils/prefab/confirmDialog';
-import fetchAPI from './utils/func/fetch';
-import { DataManager } from './utils/func/dataManager';
+import { _decorator, native, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, EditBox } from 'cc';
+import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
+import fetchAPI from './utils/functions/fetch';
+import { DataManager } from './utils/functions/dataManager';
+import AuthManager from './utils/data/AuthManager';
 const { ccclass, property } = _decorator;
 
 // TODO: 从配置中获取
@@ -35,7 +36,7 @@ export class GameLobby extends Component {
     @property(EditBox) private passwordInput: EditBox = null!;
     @property(Label) private CreateRoomErrorMsgInput: Label = null!;
 
-    // user info nodes
+    // login/ logout
     loginMode: string = 'login' // create/login
     @property(Node) private createNewAccountNode: Node = null!;
     @property(Node) private BackToLoginNode: Node = null!;
@@ -45,14 +46,26 @@ export class GameLobby extends Component {
     @property(EditBox) private userEmailInput: EditBox = null!;
     @property(Label) private loginErrorMsgInput: Label = null!;
 
+    // user info
+    @property(Label) private username: Label = null!;
+    @property(Sprite) private avater: Sprite = null!;
+    @property(Node) private loginBtn: Node = null!;
+    @property(Node) private logoutBtn: Node = null!;
+
+    // global msg
+    // TODO: 可以封装到基础类中
+    @property(Label) private gErrorMsgLabel: Label = null!;
+    @property(Label) private gSuccessMsgLabel: Label = null!;
+
+
     onLoad() {
-        console.log(this.node, 'GameLobby 场景加载成功')
+        // console.log(this.node, 'GameLobby 场景加载成功')
     }
 
     start() {
         this.loadGameResources(() => {
-            this.initUserInfo();
             this.initGameLobby();
+            this.initUserInfo();
         });
     }
 
@@ -88,6 +101,16 @@ export class GameLobby extends Component {
         const res = await this.getLobby()
         this.roomList = res
         this.genUIbyLobbyData()
+    }
+
+    initUserInfo() {
+        console.log(AuthManager.getUser())
+        if (!AuthManager.isLoggedIn()) {
+            // TODO: 提醒用户登录
+            this.setLogoutStatus()
+            return
+        }
+        this.setLoginStatus()
     }
 
     joinRoom(room_id: string) {
@@ -138,10 +161,6 @@ export class GameLobby extends Component {
             });
             roomSample.active = false
         }
-    }
-
-    initUserInfo() {
-
     }
 
 
@@ -248,12 +267,14 @@ export class GameLobby extends Component {
         this.node.getChildByName('LogInForm').active = true
     }
 
-    // TODO: 后端需要返回验证码
+    // TODO: 错误处理
+    // TODO: 成功处理
     async onClickConfirmLogIn() {
         console.log('确认登录/或者创建新账户', this.userNameInput.string, this.userPasswordInput.string, this.userEmailInput.string)
         // TODO： 前端做正则校验
         if (!this.userNameInput.string || !this.userPasswordInput.string) {
             this.loginErrorMsgInput.string = '用户名和密码不能为空'
+            return
         }
 
         // 创建新用户
@@ -268,13 +289,8 @@ export class GameLobby extends Component {
                     password: this.userPasswordInput.string,
                     email: this.userEmailInput.string
                 })
-                if (!res._id) {
-                    this.loginErrorMsgInput.string = '创建新用户失败，请稍后重试！'
-                    return
-                }
-                else {
-                    this.resetLoginForm()
-                }
+                this.setGSuccessMsg("创建新用户成功 > o <! 请登录")
+                this.resetLoginForm()
             }
         }
 
@@ -284,14 +300,14 @@ export class GameLobby extends Component {
                 userName: this.userNameInput.string,
                 password: this.userPasswordInput.string
             })
-            if (!res?.user?._id) {
-                this.loginErrorMsgInput.string = '用户名或密码错误，请重试！'
+            if (!res.user || !res.expiresIn || !res.token) {
+                this.setGErrorMsg("返回用户数据错误！请检查网络或者重新登录")
                 return
             }
-            else {
-                // TODO: 用户登录成功
-                this.onClickCancelLogIn()
-            }
+            AuthManager.login(res)
+            this.setLoginStatus()
+            this.setGSuccessMsg("登录成功")
+            this.onClickCancelLogIn()
         }
     }
 
@@ -302,8 +318,11 @@ export class GameLobby extends Component {
 
     onClickLogOut() {
         // if (!this.user_id) return
-        const callback = () => { }
-        ConfirmDialog.show(`确定退出这个账号吗？`, `用户id: ${this.user_id}`, undefined, undefined, callback, undefined)
+        const callback = () => {
+            AuthManager.logout()
+            this.setLogoutStatus()
+        }
+        ConfirmDialog.show(`确定退出这个账号吗？`, `用户: ${this.username.string}`, undefined, undefined, callback, undefined)
     }
 
     onClickCreateNewAccount() {
@@ -335,6 +354,22 @@ export class GameLobby extends Component {
         this.resetLoginInput()
     }
 
+    setLoginStatus() {
+        const user = AuthManager.getUser()
+        this.user_id = user._id
+        this.username.string = user.userName
+        this.loginBtn.active = false
+        this.logoutBtn.active = true
+    }
+
+    setLogoutStatus() {
+        AuthManager.logout()
+        this.user_id = ""
+        this.username.string = "游客"
+        this.loginBtn.active = true
+        this.logoutBtn.active = false
+    }
+
     // —————————————————————————————————————
 
 
@@ -353,6 +388,25 @@ export class GameLobby extends Component {
 
     async login(body: any): Promise<any> {
         return await fetchAPI('/auth/login', { method: 'POST', body })
+    }
+
+    // —————————————————————————————————————
+
+
+    // ————————————Global Msg ——————————————
+
+    setGErrorMsg(text: string) {
+        this.gErrorMsgLabel.string = text
+        setTimeout(() => {
+            this.gErrorMsgLabel.string = ""
+        }, 5000);
+    }
+
+    setGSuccessMsg(text: string) {
+        this.gSuccessMsgLabel.string = text
+        setTimeout(() => {
+            this.gSuccessMsgLabel.string = ""
+        }, 5000);
     }
 
     // —————————————————————————————————————
