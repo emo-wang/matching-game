@@ -1,3 +1,5 @@
+import AuthManager from "../data/AuthManager";
+
 // fetchUtils.ts
 const baseUrl = 'http://localhost:3000'; // 修改为你的API基础URL
 
@@ -16,6 +18,7 @@ async function fetchAPI(endpoint: string, options: FetchOptions = { method: 'GET
         method: options.method,
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${AuthManager.getToken()}`,
             ...options.headers
         },
         mode: options.mode,

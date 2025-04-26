@@ -6,6 +6,7 @@ import { DataManager } from './utils/functions/dataManager';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
+    WAITING: 'waiting',
     PENDING: 'pending', // 初始状态、等待刷新状态
     PLAYING: 'playing',
     WIN: 'win',
@@ -30,12 +31,18 @@ export class MatchingGame extends Component {
     combos: number = 0; // 连续消除
 
     update(dt: number): void {
-        if (this.gameStatus === GAMESTATUS.PLAYING) {
-            this.timeLeft -= dt;
-            this.node.getChildByName('timebar').getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
-            if (this.timeLeft <= 0) {
-                this.setGameStatus(GAMESTATUS.LOSE);
-            }
+        switch (this.gameStatus) {
+            case GAMESTATUS.PLAYING:
+                this.timeLeft -= dt;
+                this.node.getChildByName('timebar').getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
+                if (this.timeLeft <= 0) {
+                    this.setGameStatus(GAMESTATUS.LOSE);
+                }
+                break;
+            case GAMESTATUS.WAITING:
+
+            default:
+                break;
         }
     }
 
@@ -47,8 +54,6 @@ export class MatchingGame extends Component {
     start() {
         this.loadGameResources(() => {
             this.initGameLogic();
-            this.initOtherPlayersTable();
-            this.addEventListeners();
         });
     }
 
@@ -76,15 +81,6 @@ export class MatchingGame extends Component {
 
     }
 
-    addEventListeners() {
-        const btns = this.node.getChildByName('buttons')
-
-        btns.getChildByName('hint').on(Node.EventType.TOUCH_END, this.onClickHint, this)
-        btns.getChildByName('shuffle').on(Node.EventType.TOUCH_END, this.shuffleTable, this)
-        btns.getChildByName('restart').on(Node.EventType.TOUCH_END, this.restartGame, this)
-        btns.getChildByName('exit').on(Node.EventType.TOUCH_END, this.onClickExit, this)
-    }
-
     initOtherPlayersTable() {
         // TODO: 根据后台数据生成
         const playerCount = 5
@@ -100,26 +96,9 @@ export class MatchingGame extends Component {
     }
 
     initGameLogic() {
-        this.matchingData = initMatchingData(1);
-        console.log('matchingData', this.matchingData)
-        this.initGameTable();
-        this.initMatchingArray();
-        this.timeLeft = TIMELIMIT
-        this.setGameStatus(GAMESTATUS.PLAYING)
-        this.checkTableStatus();
+        this.setGameStatus(GAMESTATUS.WAITING)
     }
 
-    onClickExit() {
-        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined, () => { director.loadScene('LobbyScene') })
-    }
-
-    restartGame() {
-        if (this.gameStatus === GAMESTATUS.PLAYING || this.gameStatus === GAMESTATUS.PENDING) return
-        this.setGameStatus(GAMESTATUS.PENDING)
-        this.matchingLink = []
-        this.lastClickedCell = null
-        this.initGameLogic()
-    }
 
     // 不考虑别的更新方式，这里暂时只用于连接后
     updateMatchingData(keys: number[]) {
@@ -217,6 +196,30 @@ export class MatchingGame extends Component {
         this.showLink(this.matchingLink, 1)
     }
 
+    onClickExit() {
+        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined, () => { director.loadScene('LobbyScene') })
+    }
+
+    onClickStartGame(){
+        // TODO：连接上ws
+
+        this.matchingData = initMatchingData(1);
+        console.log('matchingData', this.matchingData)
+        this.initGameTable();
+        this.initMatchingArray();
+        this.timeLeft = TIMELIMIT
+        this.setGameStatus(GAMESTATUS.PLAYING)
+        this.checkTableStatus();
+        this.initOtherPlayersTable();
+    }
+
+    onClickRestartGame() {
+        if (this.gameStatus === GAMESTATUS.PLAYING || this.gameStatus === GAMESTATUS.PENDING) return
+        this.setGameStatus(GAMESTATUS.PENDING)
+        this.matchingLink = []
+        this.lastClickedCell = null
+        this.initGameLogic()
+    }
 
     onClickCell(e: any, mapId: number) {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
@@ -388,11 +391,17 @@ export class MatchingGame extends Component {
         }
     }
 
+    //————————————————————————请求接口———————————————————————————————————————
+
+
+
+    //——————————————————————————————————————————————————————————————————————
+
 
     //————————————————————————以下为一些功能性函数————————————————————————————
 
 
-    // TODO: 这个功能有问题，需要fix
+    // TODO: 这个功能有问题，需要封装一下，逐渐消失
     // TODO: 封装到其他地方
     startFadeOut(node: Node, fadeDuration: number = 3, callback: any) {
         let uiOpacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
@@ -497,4 +506,6 @@ export class MatchingGame extends Component {
         return { matched: false, route: [] };
     }
 
+
+    //————————————————————————————————————————————————————————————————————————
 }

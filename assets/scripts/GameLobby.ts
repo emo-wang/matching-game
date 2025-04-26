@@ -10,7 +10,7 @@ const FONTSIZE = 18
 
 interface CreateRoomSchema {
     roomName: string; // 房间名
-    roomOwnerId: string; // 创建者id
+    roomOwner: Object; // 创建者
     maxPlayerCount?: number; // 最大玩家数量
     playerList?: string[]; // 玩家id列表
     isPlaying?: boolean; // 是否为开始游戏
@@ -21,11 +21,14 @@ interface CreateRoomSchema {
 
 @ccclass('GameLobby')
 export class GameLobby extends Component {
-    roomList = []
-    curRoomId: number = null // 这个是index，不是指房间id
+    private ws: WebSocket | null = null;
+    roomList = [];
     room_id: string = '' // 房间uuid
-    user_id: string = '' // 用户uuid
 
+    // roomList
+    @property(Node) private RoomListContainer: Node = null!
+    @property(Node) private RoomListItem: Node = null!
+    @property(Node) private RoomListTitle: Node = null!
 
     // createroom form nodes
     createRoomForm: CreateRoomSchema
@@ -65,6 +68,7 @@ export class GameLobby extends Component {
     start() {
         this.loadGameResources(() => {
             this.initGameLobby();
+            this.initWebSocket()
             this.initUserInfo();
         });
     }
@@ -96,109 +100,137 @@ export class GameLobby extends Component {
         });
     }
 
+    initWebSocket() {
+        this.ws = new WebSocket('ws://localhost:3001');
+
+        this.ws.onopen = () => {
+            console.log('WebSocket 连接成功');
+        };
+
+        this.ws.onmessage = (event) => {
+            const wsdata = JSON.parse(event.data)
+            console.log('收到服务器消息:', wsdata);
+            if (wsdata.type === 'update-lobbies') {
+                this.roomList = wsdata.data
+                this.updateRoomList(wsdata.data)
+            }
+        };
+
+        this.ws.onclose = () => {
+            console.log('WebSocket 连接关闭');
+        };
+
+        this.ws.onerror = (event) => {
+            console.error('WebSocket 错误:', event);
+        };
+    }
 
     async initGameLobby() {
         const res = await this.getLobby()
         this.roomList = res
-        this.genUIbyLobbyData()
+        this.initRoomList(res)
     }
 
     initUserInfo() {
-        console.log(AuthManager.getUser())
+        console.log(`当前用户：`, AuthManager.getUser())
         if (!AuthManager.isLoggedIn()) {
             // TODO: 提醒用户登录
+            AuthManager.logout()
             this.setLogoutStatus()
             return
         }
         this.setLoginStatus()
     }
 
-    joinRoom(room_id: string) {
-        DataManager.instance.set('roomInfo', {
-            room_id
-        });
-        director.loadScene('RoomScene')
+    // ——————————roomList CRUD——————————————————
+
+    // RoomListColumnName = ['房间名', '房主' ,'当前房间玩家', '游戏状态', '是否为私密房间']
+
+    initRoomList(roomList: []) {
+        roomList.forEach((item: any) => {
+            let newNode = instantiate(this.RoomListItem)
+            newNode.active = true
+            newNode.getChildByName('RoomName').getComponent(Label).string = item.roomName
+            newNode.getChildByName('Player').getComponent(Label).string = `${item.playerList.length}/${item.maxPlayerCount}`
+            newNode.getChildByName('Status').getComponent(Label).string = item.isPlaying
+            newNode.getChildByName('Owner').getComponent(Label).string = item.roomOwner.userName
+            newNode.getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
+            // TODO: 优化，name一般是用来给节点命名的
+            newNode.name = item._id
+            newNode.on(Node.EventType.TOUCH_END, () => this.clickRoom(item._id), this)
+            this.RoomListContainer.addChild(newNode)
+        })
     }
 
-    genUIbyLobbyData(type: string = 'init') {
-        if (this.roomList.length === 0) return;
-
-        // display column
-        const displayedTitle = ['Room Name', 'PlayerCount', 'MaxPlayerCount', 'Game Status', 'Is Private Room']
-        const displayedData = this.roomList.map((room: any) => ({
-            name: room.roomName,
-            curPlayerCount: room.playerList.length,
-            maxPlayerCount: room.maxPlayerCount,
-            isPlaying: room.isPlaying,
-            isPrivate: room.isPrivate,
-        }))
-
-        const sv = this.node.getChildByName('roomScrollView');
-
-        if (type === 'init') {
-            // add titles
-            Object.keys(displayedData[0]).forEach((columnName: string, index) => {
-                let titleNode = new Node(columnName);
-                titleNode.name = columnName
-                titleNode.addComponent(Label).string = displayedTitle[index]
-                titleNode.getComponent(Label).fontSize = FONTSIZE
-                sv.getChildByName('titles').addChild(titleNode)
-            });
-            // add RoomList
-            let roomSample = sv.getChildByName('view').getChildByName('content').getChildByName('roomSample')
-            displayedData.forEach((item: any, index) => {
-                let roomNode = instantiate(roomSample)
-                roomNode.name = index.toString() // index
-                // roomNode.name = room.id.toString() // mongoBD id
-                Object.keys(item).forEach((key: string) => {
-                    let detailNode = new Node(item + key)
-                    detailNode.addComponent(Label).string = item[key]
-                    detailNode.getComponent(Label).fontSize = FONTSIZE
-                    roomNode.addChild(detailNode)
-                })
-                sv.getChildByName('view').getChildByName('content').addChild(roomNode)
-                roomNode.on(Node.EventType.TOUCH_END, (e: any) => this.clickRoom(e, index, this.roomList[index]._id), this)
-            });
-            roomSample.active = false
-        }
+    updateRoomList(roomList: []) {
+        // TODO: 优化，现在直接全部覆盖了
+        this.RoomListContainer.destroyAllChildren();
+        this.initRoomList(roomList)
     }
 
+    // —————————————————————————————————————————
 
-    /**
-     * 
-     * @param e 
-     * @param roomIndex 房间index
-     * @param roomId 房间id
-     * @returns 
-     */
-    clickRoom(e: Event, roomIndex: number, roomId: string) {
+    clickRoom(id: string) {
         const selColor = new Color(255, 182, 193, 140);
         const unselColor = new Color(140, 140, 140, 140);
-        let svContent = this.node.getChildByName('roomScrollView').getChildByName('view').getChildByName('content')
-
-        if (this.curRoomId === roomIndex) {
-            svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = unselColor;
-            this.curRoomId = null;
+        if (this.room_id === id) {
+            this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = unselColor;
+            this.room_id = null;
             return;
         }
 
-        if (this.curRoomId !== null) {
-            svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = unselColor;
+        if (this.room_id) {
+            this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = unselColor;
         }
-        this.room_id = roomId
-        this.curRoomId = roomIndex;
-        svContent.getChildByName(this.curRoomId.toString()).getComponent(Sprite).color = selColor;
+        this.room_id = id
+        this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = selColor;
     }
 
     // ————————————onclick事件函数———————————
 
-    onClickCreateRoom(e: Event) {
-        this.node.getChildByName('CreateRoom').active = true
+    onClickDeleteRoom() {
+        if (!this.room_id) {
+            this.setGErrorMsg("请先选择房间")
+            return
+        }
+        if (!AuthManager.isLoggedIn()) {
+            this.setGErrorMsg("请先登录")
+            return
+        }
+        ConfirmDialog.show(`确认要删除这个房间吗？`, `房间id: ${this.room_id}`, undefined, undefined,
+            async () => {
+                await this.deleteLobby(this.room_id)
+                this.room_id = ""
+            },
+            undefined)
     }
 
     onClickJoinRoom(e: Event) {
-        if (!this.room_id) return
-        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.curRoomId}`, undefined, undefined, () => this.joinRoom(this.room_id), undefined)
+        if (!this.room_id) {
+            this.setGErrorMsg("请先选择房间")
+            return
+        }
+        if (!AuthManager.isLoggedIn()) {
+            this.setGErrorMsg("请先登录")
+            return
+        }
+        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.room_id}`, undefined, undefined,
+            () => {
+                DataManager.instance.set('roomInfo', {
+                    room_id: this.room_id
+                });
+                this.room_id = ""
+                director.loadScene('RoomScene')
+            },
+            undefined)
+    }
+
+    onClickCreateRoom(e: Event) {
+        if (!AuthManager.isLoggedIn()) {
+            this.setGErrorMsg("请先登录")
+            return
+        }
+        this.node.getChildByName('CreateRoom').active = true
     }
 
     async onClickConfirmCreateRoom() {
@@ -226,12 +258,18 @@ export class GameLobby extends Component {
             return
         }
 
+        const user = AuthManager.getUser()
+        if (!user._id || !user.userName) {
+            this.CreateRoomErrorMsgInput.string = '获取不到用户信息'
+            return
+        }
+
         this.CreateRoomErrorMsgInput.string = ''
 
         // send to server
         let roomInfo: CreateRoomSchema = {
             roomName,
-            roomOwnerId: 'Nora',
+            roomOwner: user,
             maxPlayerCount,
             isPrivate,
             mapType,
@@ -243,7 +281,7 @@ export class GameLobby extends Component {
 
         if (!res._id) return
         this.room_id = res._id
-        this.joinRoom(this.room_id)
+        // this.clickRoom(this.room_id)
     }
 
     onClickCancelCreateRoom() {
@@ -317,7 +355,6 @@ export class GameLobby extends Component {
     }
 
     onClickLogOut() {
-        // if (!this.user_id) return
         const callback = () => {
             AuthManager.logout()
             this.setLogoutStatus()
@@ -356,15 +393,12 @@ export class GameLobby extends Component {
 
     setLoginStatus() {
         const user = AuthManager.getUser()
-        this.user_id = user._id
         this.username.string = user.userName
         this.loginBtn.active = false
         this.logoutBtn.active = true
     }
 
     setLogoutStatus() {
-        AuthManager.logout()
-        this.user_id = ""
         this.username.string = "游客"
         this.loginBtn.active = true
         this.logoutBtn.active = false
@@ -374,12 +408,19 @@ export class GameLobby extends Component {
 
 
     // ————————————获取接口数据——————————————
+
+    // TODO: 这里要连接上websocket，获取实时的room数据
+    // 进入房间之后，就是拿到room数据对其进行修改
     async getLobby(): Promise<any> {
         return await fetchAPI('/lobbies');
     }
 
     async postLobby(body: any): Promise<any> {
         return await fetchAPI('/lobbies', { method: 'POST', body });
+    }
+
+    async deleteLobby(room_id: string): Promise<any> {
+        return await fetchAPI(`/lobbies/${room_id}`, { method: 'DELETE' });
     }
 
     async createUser(body: any): Promise<any> {
