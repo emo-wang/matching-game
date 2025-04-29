@@ -3,6 +3,7 @@ import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './ut
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { DataManager } from './utils/functions/dataManager';
+import fetchAPI from './utils/functions/fetch';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
@@ -29,6 +30,7 @@ export class MatchingGame extends Component {
     cellWidth: number = 0; // 目前是正方形
     timeLeft: number = TIMELIMIT; // 剩余时间
     combos: number = 0; // 连续消除
+    room_id: string = '' // room uuid
 
     update(dt: number): void {
         switch (this.gameStatus) {
@@ -48,6 +50,7 @@ export class MatchingGame extends Component {
 
     onLoad() {
         const roomInfo = DataManager.instance.get('roomInfo');
+        this.room_id = roomInfo.room_id
         console.log('进入房间：', roomInfo, this.node);
     }
 
@@ -196,11 +199,23 @@ export class MatchingGame extends Component {
         this.showLink(this.matchingLink, 1)
     }
 
-    onClickExit() {
-        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined, () => { director.loadScene('LobbyScene') })
+    async onClickExit() {
+        if (!this.room_id) {
+            console.log('未获取到房间号')
+            return
+        }
+        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined,
+            async () => {
+                await this.exitRoom({ roomId: this.room_id })
+                this.room_id = null
+                DataManager.instance.set('roomInfo', {
+                    room_id: null
+                });
+                director.loadScene('LobbyScene')
+            })
     }
 
-    onClickStartGame(){
+    onClickStartGame() {
         // TODO：连接上ws
 
         this.matchingData = initMatchingData(1);
@@ -508,4 +523,8 @@ export class MatchingGame extends Component {
 
 
     //————————————————————————————————————————————————————————————————————————
+
+    async exitRoom(body: any): Promise<any> {
+        return await fetchAPI('/game/exit', { method: 'POST', body });
+    }
 }

@@ -8,17 +8,6 @@ const { ccclass, property } = _decorator;
 // TODO: 从配置中获取
 const FONTSIZE = 18
 
-interface CreateRoomSchema {
-    roomName: string; // 房间名
-    roomOwner: Object; // 创建者
-    maxPlayerCount?: number; // 最大玩家数量
-    playerList?: string[]; // 玩家id列表
-    isPlaying?: boolean; // 是否为开始游戏
-    isPrivate: boolean; // 是否为私密房间
-    password?: string; // 房间密码
-    mapType: number; // 地图类型
-}
-
 @ccclass('GameLobby')
 export class GameLobby extends Component {
     private ws: WebSocket | null = null;
@@ -31,12 +20,11 @@ export class GameLobby extends Component {
     @property(Node) private RoomListTitle: Node = null!
 
     // createroom form nodes
-    createRoomForm: CreateRoomSchema
-    @property(EditBox) private roomNameInput: EditBox = null!;
-    @property(EditBox) private maxPlayerCountInput: EditBox = null!;
-    @property(Toggle) private isPrivateToggle: Toggle = null!;
-    @property(Node) private mapTypeNode: Node = null!;
-    @property(EditBox) private passwordInput: EditBox = null!;
+    @property(EditBox) private roomIdInput: EditBox = null!;
+    @property(EditBox) private maxPlayersInput: EditBox = null!;
+    // @property(Toggle) private isPrivateToggle: Toggle = null!;
+    // @property(Node) private mapTypeNode: Node = null!;
+    // @property(EditBox) private passwordInput: EditBox = null!;
     @property(Label) private CreateRoomErrorMsgInput: Label = null!;
 
     // login/ logout
@@ -44,7 +32,7 @@ export class GameLobby extends Component {
     @property(Node) private createNewAccountNode: Node = null!;
     @property(Node) private BackToLoginNode: Node = null!;
     @property(Label) private title: Label = null!;
-    @property(EditBox) private userNameInput: EditBox = null!;
+    @property(EditBox) private usernameInput: EditBox = null!;
     @property(EditBox) private userPasswordInput: EditBox = null!;
     @property(EditBox) private userEmailInput: EditBox = null!;
     @property(Label) private loginErrorMsgInput: Label = null!;
@@ -68,8 +56,6 @@ export class GameLobby extends Component {
     start() {
         this.loadGameResources(() => {
             this.initGameLobby();
-            this.initWebSocket()
-            this.initUserInfo();
         });
     }
 
@@ -112,7 +98,7 @@ export class GameLobby extends Component {
             console.log('收到服务器消息:', wsdata);
             if (wsdata.type === 'update-lobbies') {
                 this.roomList = wsdata.data
-                this.updateRoomList(wsdata.data)
+                this.initRoomList(wsdata.data)
             }
         };
 
@@ -129,6 +115,8 @@ export class GameLobby extends Component {
         const res = await this.getLobby()
         this.roomList = res
         this.initRoomList(res)
+        this.initWebSocket();
+        this.initUserInfo();
     }
 
     initUserInfo() {
@@ -147,25 +135,24 @@ export class GameLobby extends Component {
     // RoomListColumnName = ['房间名', '房主' ,'当前房间玩家', '游戏状态', '是否为私密房间']
 
     initRoomList(roomList: []) {
+        // TODO: 优化，现在是直接覆盖
+        // console.log('initRoomList')
+        if (!this.RoomListContainer) return
+        this.RoomListContainer.destroyAllChildren();
+
         roomList.forEach((item: any) => {
             let newNode = instantiate(this.RoomListItem)
             newNode.active = true
-            newNode.getChildByName('RoomName').getComponent(Label).string = item.roomName
-            newNode.getChildByName('Player').getComponent(Label).string = `${item.playerList.length}/${item.maxPlayerCount}`
-            newNode.getChildByName('Status').getComponent(Label).string = item.isPlaying
-            newNode.getChildByName('Owner').getComponent(Label).string = item.roomOwner.userName
+            newNode.getChildByName('RoomId').getComponent(Label).string = item.roomId
+            newNode.getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.maxPlayers}`
+            newNode.getChildByName('Status').getComponent(Label).string = item.status
+            newNode.getChildByName('Owner').getComponent(Label).string = item.ownerId
             newNode.getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
             // TODO: 优化，name一般是用来给节点命名的
             newNode.name = item._id
             newNode.on(Node.EventType.TOUCH_END, () => this.clickRoom(item._id), this)
             this.RoomListContainer.addChild(newNode)
         })
-    }
-
-    updateRoomList(roomList: []) {
-        // TODO: 优化，现在直接全部覆盖了
-        this.RoomListContainer.destroyAllChildren();
-        this.initRoomList(roomList)
     }
 
     // —————————————————————————————————————————
@@ -205,7 +192,7 @@ export class GameLobby extends Component {
             undefined)
     }
 
-    onClickJoinRoom(e: Event) {
+    async onClickJoinRoom(e: Event) {
         if (!this.room_id) {
             this.setGErrorMsg("请先选择房间")
             return
@@ -214,12 +201,14 @@ export class GameLobby extends Component {
             this.setGErrorMsg("请先登录")
             return
         }
+
         ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.room_id}`, undefined, undefined,
-            () => {
+            async () => {
+                await this.enterRoom({ roomId: this.room_id })
                 DataManager.instance.set('roomInfo', {
                     room_id: this.room_id
                 });
-                this.room_id = ""
+                this.room_id = null
                 director.loadScene('RoomScene')
             },
             undefined)
@@ -236,30 +225,17 @@ export class GameLobby extends Component {
     async onClickConfirmCreateRoom() {
 
         // get form data
-        const roomName = this.roomNameInput.string
-        const maxPlayerCount = Number(this.maxPlayerCountInput.string)
-        const isPrivate = this.isPrivateToggle.isChecked
-        let mapType = 1
-        this.mapTypeNode.children.forEach((item, index) => {
-            if (item.getComponent(Toggle).isChecked) {
-                mapType = index + 1
-            }
-        })
-        const password = this.passwordInput.string
+        const roomId = Number(this.roomIdInput.string)
+        const maxPlayers = Number(this.maxPlayersInput.string)
 
         // validate form
-        if (!roomName) {
-            this.CreateRoomErrorMsgInput.string = '房间名不能为空'
-            return
-        }
-
-        if (isPrivate && !password) {
-            this.CreateRoomErrorMsgInput.string = '私密房间需要设置房间密码'
+        if (!roomId) {
+            this.CreateRoomErrorMsgInput.string = '房间id不能为空'
             return
         }
 
         const user = AuthManager.getUser()
-        if (!user._id || !user.userName) {
+        if (!user._id || !user.username) {
             this.CreateRoomErrorMsgInput.string = '获取不到用户信息'
             return
         }
@@ -267,20 +243,17 @@ export class GameLobby extends Component {
         this.CreateRoomErrorMsgInput.string = ''
 
         // send to server
-        let roomInfo: CreateRoomSchema = {
-            roomName,
-            roomOwner: user,
-            maxPlayerCount,
-            isPrivate,
-            mapType,
-            password
+        let roomInfo = {
+            roomId,
+            maxPlayers,
+            // ownerId: user._id // 从token中获取
         }
 
         const res = await this.postLobby(roomInfo)
         this.node.getChildByName('CreateRoom').active = false
 
         if (!res._id) return
-        this.room_id = res._id
+        // this.room_id = res._id
         // this.clickRoom(this.room_id)
     }
 
@@ -288,15 +261,10 @@ export class GameLobby extends Component {
         this.node.getChildByName('CreateRoom').active = false
     }
 
-    onIsPrivateToggleChanged(toggle: Toggle, customEventData: string) {
-        if (customEventData === 'yes') {
-            this.passwordInput.node.parent.active = true
-        } else {
-            this.passwordInput.node.parent.active = false
-        }
+    // TODO: 防抖
+    onClickRefresh() {
+        this.initGameLobby()
     }
-
-    onClickRefresh() { }
 
 
     // ———————————————用户相关———————————————
@@ -308,34 +276,28 @@ export class GameLobby extends Component {
     // TODO: 错误处理
     // TODO: 成功处理
     async onClickConfirmLogIn() {
-        console.log('确认登录/或者创建新账户', this.userNameInput.string, this.userPasswordInput.string, this.userEmailInput.string)
+        console.log('确认登录/或者创建新账户', this.usernameInput.string, this.userPasswordInput.string,)
         // TODO： 前端做正则校验
-        if (!this.userNameInput.string || !this.userPasswordInput.string) {
+        if (!this.usernameInput.string || !this.userPasswordInput.string) {
             this.loginErrorMsgInput.string = '用户名和密码不能为空'
             return
         }
 
         // 创建新用户
         if (this.loginMode === 'create') {
-            if (!this.userEmailInput.string) {
-                this.loginErrorMsgInput.string = '邮箱不能为空'
-                return
-            }
-            else {
-                const res = await this.createUser({
-                    userName: this.userNameInput.string,
-                    password: this.userPasswordInput.string,
-                    email: this.userEmailInput.string
-                })
-                this.setGSuccessMsg("创建新用户成功 > o <! 请登录")
-                this.resetLoginForm()
-            }
+            const res = await this.createUser({
+                username: this.usernameInput.string,
+                password: this.userPasswordInput.string,
+            })
+            this.setGSuccessMsg("创建新用户成功 > o <! 请登录")
+            this.resetLoginForm()
+
         }
 
         // 登录用户
         else {
             const res = await this.login({
-                userName: this.userNameInput.string,
+                username: this.usernameInput.string,
                 password: this.userPasswordInput.string
             })
             if (!res.user || !res.expiresIn || !res.token) {
@@ -364,7 +326,6 @@ export class GameLobby extends Component {
 
     onClickCreateNewAccount() {
         this.title.string = 'Create New Account'
-        this.userEmailInput.node.parent.active = true
         this.loginMode = 'create'
         this.createNewAccountNode.active = false
         this.BackToLoginNode.active = true
@@ -377,14 +338,12 @@ export class GameLobby extends Component {
 
     resetLoginInput() {
         this.loginErrorMsgInput.string = ''
-        this.userEmailInput.string = ''
-        this.userNameInput.string = ''
+        this.usernameInput.string = ''
         this.userPasswordInput.string = ''
     }
 
     resetLoginForm() {
         this.title.string = 'Login'
-        this.userEmailInput.node.parent.active = false
         this.loginMode = 'login'
         this.createNewAccountNode.active = true
         this.BackToLoginNode.active = false
@@ -393,7 +352,7 @@ export class GameLobby extends Component {
 
     setLoginStatus() {
         const user = AuthManager.getUser()
-        this.username.string = user.userName
+        this.username.string = user.username
         this.loginBtn.active = false
         this.logoutBtn.active = true
     }
@@ -411,6 +370,11 @@ export class GameLobby extends Component {
 
     // TODO: 这里要连接上websocket，获取实时的room数据
     // 进入房间之后，就是拿到room数据对其进行修改
+
+    async enterRoom(body: any): Promise<any> {
+        return await fetchAPI('/game/enter', { method: 'POST', body });
+    }
+
     async getLobby(): Promise<any> {
         return await fetchAPI('/lobbies');
     }
@@ -439,6 +403,7 @@ export class GameLobby extends Component {
     setGErrorMsg(text: string) {
         this.gErrorMsgLabel.string = text
         setTimeout(() => {
+            if (!this.gErrorMsgLabel) return
             this.gErrorMsgLabel.string = ""
         }, 5000);
     }
@@ -446,6 +411,7 @@ export class GameLobby extends Component {
     setGSuccessMsg(text: string) {
         this.gSuccessMsgLabel.string = text
         setTimeout(() => {
+            if (!this.gSuccessMsgLabel) return
             this.gSuccessMsgLabel.string = ""
         }, 5000);
     }
