@@ -10,8 +10,8 @@ export interface MatchingData {
     mapData: Map<number, MatchingCell>,
     cols: number,
     rows: number,
-    totalCount: number,
-    typeCount: number,
+    totalCount?: number,
+    typeCount?: number,
 }
 
 /**
@@ -115,4 +115,47 @@ export function initMatchingData(typeId: number = 0): MatchingData {
         totalCount,
         typeCount,
     }
+}
+
+// 将从服务端获取的数据转为客户端需要的格式，主要是为了适配之前写的代码
+// TODO: 优化
+export function convertDataForClient(gameBoard: [][]): MatchingData {
+    let convertedData = {
+        mapData: new Map(),
+        cols: gameBoard[0].length,
+        rows: gameBoard.length,
+        totalCount: 0,
+        typeCount: 0,
+    }
+
+    let id = 0
+    for (let i = 0; i < gameBoard.length; i++) {
+        for (let j = 0; j < gameBoard[i].length; j++) {
+            convertedData.mapData.set(id, {
+                id,
+                type: gameBoard[i][j] === -1 ? `` : `icon-${gameBoard[i][j]}`,
+                typeId: gameBoard[i][j],
+                isMatched: false,
+                isEmpty: gameBoard[i][j] === -1 ? true : false
+            })
+            id++
+        }
+    }
+    console.log(`将服务端数据转为客户端`, convertedData)
+    return convertedData
+}
+
+export function convertDataForServer(matchingdata: MatchingData): any {
+    let convertedData = []
+
+    let id = 0
+    for (let i = 0; i < matchingdata.rows; i++) {
+        convertedData.push([])
+        for (let j = 0; j < matchingdata.cols; j++) {
+            convertedData[i].push(matchingdata.mapData.get(id).typeId)
+            id++
+        }
+    }
+    console.log(`将客户端数据转为服务端`, convertedData)
+    return convertedData
 }

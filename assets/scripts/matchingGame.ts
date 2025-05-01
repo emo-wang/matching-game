@@ -1,30 +1,34 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
-import { initMatchingData, MatchingData, MatchingCell, shuffleArray } from './utils/data/initMatchingData';
+import { initMatchingData, MatchingData, MatchingCell, shuffleArray, convertDataForClient, convertDataForServer } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { DataManager } from './utils/functions/dataManager';
+import AuthManager from './utils/data/AuthManager';
 import fetchAPI from './utils/functions/fetch';
 const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
     WAITING: 'waiting',
-    PAUSE:'pause',
+    PAUSE: 'pause',
     PLAYING: 'playing',
     ENDED: 'ended',
 }
+
+
 
 const TIMELIMIT = 60
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     private ws: WebSocket | null = null;
-    matchingData: MatchingData = null // 页面显示数据
-    matchingDatabyOthers: MatchingData[] = new Array<MatchingData>(5);
+    gameData: any = null;
+    matchingData: MatchingData =null; // 页面显示数据
+    matchingDatabyOthers: MatchingData[] =[];
     matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
-    gameStatus: String = GAMESTATUS.WAITING // 'pending', 'playing', 'pause', 'ended'
+    gameStatus: String = GAMESTATUS.WAITING
     cellHeight: number = 0; // 目前是正方形
     cellWidth: number = 0; // 目前是正方形
     timeLeft: number = TIMELIMIT; // 剩余时间
@@ -87,12 +91,12 @@ export class MatchingGame extends Component {
 
     initOtherPlayersTable() {
         // TODO: 根据后台数据生成
-        const playerCount = 5
+        const otherPlayers: any[] = this.gameData.players.filter((player: any) => player.userId !== AuthManager.getUser()._id)
         const tables = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('table'))
         const players = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('player'))
-        for (let i = 0; i < playerCount; i++) {
+        for (let i = 0; i < otherPlayers.length; i++) {
             // WARNING: 这里没有深拷贝的，考虑到也就是用于生成UI，更新UI也只是根据节点顺序，不会有后续牵连
-            this.matchingDatabyOthers[i] = this.matchingData
+            this.matchingDatabyOthers.push(convertDataForClient(otherPlayers[i].gameBoard));
             const { cols, rows, mapData } = this.matchingDatabyOthers[i]
             this.generateUIbyData('otherplayers', tables[i], cols, rows, mapData)
             players[i].getComponent(Label).string = `Player${i + 1}`
@@ -113,11 +117,15 @@ export class MatchingGame extends Component {
 
         this.ws.onmessage = (event) => {
             const wsdata = JSON.parse(event.data)
-            console.log('收到服务器消息:', wsdata);
+            console.log('收到ws消息:', wsdata);
             switch (wsdata.type) {
                 case 'start-game':
                     // TODO:开始游戏
-                    this.matchingData = initMatchingData(1);
+                    this.gameData = wsdata.data
+                    // TODO:优化
+                    // console.log(`测试用`, initMatchingData(0))
+                    const gameBoard = wsdata.data.players.find((player: any) => player.userId === AuthManager.getUser()._id).gameBoard
+                    this.matchingData = convertDataForClient(gameBoard)
                     console.log('matchingData', this.matchingData)
                     this.initGameTable();
                     this.initMatchingArray();
@@ -127,12 +135,14 @@ export class MatchingGame extends Component {
                     this.initOtherPlayersTable();
                     break;
 
-                case 'start-game':
-                    // TODO:开始游戏
+                case 'pause-game':
+                    this.setGameStatus(GAMESTATUS.PAUSE)
+                    // TODO:暂停游戏
                     break;
 
-                case 'start-game':
-                    // TODO:开始游戏
+                case 'end-game':
+                    this.setGameStatus(GAMESTATUS.ENDED)
+                    // TODO:结束游戏
                     break;
 
                 default:
