@@ -13,6 +13,7 @@ export class GameLobby extends Component {
     private ws: WebSocket | null = null;
     roomList = [];
     room_id: string = '' // 房间uuid
+    roomId: string = '' //房间id
 
     // roomList
     @property(Node) private RoomListContainer: Node = null!
@@ -90,7 +91,7 @@ export class GameLobby extends Component {
         this.ws = new WebSocket('ws://localhost:3001');
 
         this.ws.onopen = () => {
-            console.log('WebSocket 连接成功');
+            console.log('lobby WebSocket 连接成功');
         };
 
         this.ws.onmessage = (event) => {
@@ -146,7 +147,7 @@ export class GameLobby extends Component {
             newNode.getChildByName('RoomId').getComponent(Label).string = item.roomId
             newNode.getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.maxPlayers}`
             newNode.getChildByName('Status').getComponent(Label).string = item.status
-            newNode.getChildByName('Owner').getComponent(Label).string = item.ownerId
+            newNode.getChildByName('Owner').getComponent(Label).string = item.owner.username
             newNode.getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
             // TODO: 优化，name一般是用来给节点命名的
             newNode.name = item._id

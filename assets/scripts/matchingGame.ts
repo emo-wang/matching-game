@@ -8,24 +8,23 @@ const { ccclass, property } = _decorator;
 
 const GAMESTATUS = {
     WAITING: 'waiting',
-    PENDING: 'pending', // 初始状态、等待刷新状态
+    PAUSE:'pause',
     PLAYING: 'playing',
-    WIN: 'win',
-    LOSE: 'lose'
+    ENDED: 'ended',
 }
-
 
 const TIMELIMIT = 60
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
+    private ws: WebSocket | null = null;
     matchingData: MatchingData = null // 页面显示数据
     matchingDatabyOthers: MatchingData[] = new Array<MatchingData>(5);
     matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
     spriteFrames: Map<number, SpriteFrame> = new Map();
-    gameStatus: String = GAMESTATUS.PENDING // 'pending', 'playing', 'win', 'lose'
+    gameStatus: String = GAMESTATUS.WAITING // 'pending', 'playing', 'pause', 'ended'
     cellHeight: number = 0; // 目前是正方形
     cellWidth: number = 0; // 目前是正方形
     timeLeft: number = TIMELIMIT; // 剩余时间
@@ -35,10 +34,11 @@ export class MatchingGame extends Component {
     update(dt: number): void {
         switch (this.gameStatus) {
             case GAMESTATUS.PLAYING:
-                this.timeLeft -= dt;
+                // TODO: set time limit
+                // this.timeLeft -= dt;
                 this.node.getChildByName('timebar').getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
                 if (this.timeLeft <= 0) {
-                    this.setGameStatus(GAMESTATUS.LOSE);
+                    this.setGameStatus(GAMESTATUS.ENDED);
                 }
                 break;
             case GAMESTATUS.WAITING:
@@ -51,11 +51,12 @@ export class MatchingGame extends Component {
     onLoad() {
         const roomInfo = DataManager.instance.get('roomInfo');
         this.room_id = roomInfo.room_id
-        console.log('进入房间：', roomInfo, this.node);
+        console.log('进入房间：', roomInfo);
     }
 
     start() {
         this.loadGameResources(() => {
+            this.initWebSocket();
             this.initGameLogic();
         });
     }
@@ -102,6 +103,51 @@ export class MatchingGame extends Component {
         this.setGameStatus(GAMESTATUS.WAITING)
     }
 
+    initWebSocket() {
+        // TODO: 把地址添加到config中
+        this.ws = new WebSocket('ws://localhost:4001');
+
+        this.ws.onopen = () => {
+            console.log('game WebSocket 连接成功');
+        };
+
+        this.ws.onmessage = (event) => {
+            const wsdata = JSON.parse(event.data)
+            console.log('收到服务器消息:', wsdata);
+            switch (wsdata.type) {
+                case 'start-game':
+                    // TODO:开始游戏
+                    this.matchingData = initMatchingData(1);
+                    console.log('matchingData', this.matchingData)
+                    this.initGameTable();
+                    this.initMatchingArray();
+                    this.timeLeft = TIMELIMIT
+                    this.setGameStatus(GAMESTATUS.PLAYING)
+                    this.checkTableStatus();
+                    this.initOtherPlayersTable();
+                    break;
+
+                case 'start-game':
+                    // TODO:开始游戏
+                    break;
+
+                case 'start-game':
+                    // TODO:开始游戏
+                    break;
+
+                default:
+                    break;
+            }
+        };
+
+        this.ws.onclose = () => {
+            console.log('WebSocket 连接关闭');
+        };
+
+        this.ws.onerror = (event) => {
+            console.error('WebSocket 错误:', event);
+        };
+    }
 
     // 不考虑别的更新方式，这里暂时只用于连接后
     updateMatchingData(keys: number[]) {
@@ -215,22 +261,52 @@ export class MatchingGame extends Component {
             })
     }
 
-    onClickStartGame() {
-        // TODO：连接上ws
+    onClickPauseGame() {
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'pause-game',
+            message: 'request to pause game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
+    }
 
-        this.matchingData = initMatchingData(1);
-        console.log('matchingData', this.matchingData)
-        this.initGameTable();
-        this.initMatchingArray();
-        this.timeLeft = TIMELIMIT
-        this.setGameStatus(GAMESTATUS.PLAYING)
-        this.checkTableStatus();
-        this.initOtherPlayersTable();
+    onClickEndGame() {
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'end-game',
+            message: 'request to end game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
+    }
+
+    onClickStartGame() {
+        // TODO：封装进wsManager里
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'start-game',
+            message: 'request to start game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
     }
 
     onClickRestartGame() {
-        if (this.gameStatus === GAMESTATUS.PLAYING || this.gameStatus === GAMESTATUS.PENDING) return
-        this.setGameStatus(GAMESTATUS.PENDING)
+        if (this.gameStatus === GAMESTATUS.PLAYING || this.gameStatus === GAMESTATUS.PAUSE) return
+        this.setGameStatus(GAMESTATUS.PAUSE)
         this.matchingLink = []
         this.lastClickedCell = null
         this.initGameLogic()
@@ -264,7 +340,7 @@ export class MatchingGame extends Component {
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
 
             if (this.isGameEnd()) {
-                this.setGameStatus(GAMESTATUS.WIN)
+                this.setGameStatus(GAMESTATUS.ENDED)
                 console.log('游戏结束')
             } else {
                 this.checkTableStatus()
@@ -277,7 +353,7 @@ export class MatchingGame extends Component {
     }
 
     shuffleTable() {
-        if (this.gameStatus !== GAMESTATUS.PLAYING && this.gameStatus !== GAMESTATUS.PENDING) return
+        if (this.gameStatus !== GAMESTATUS.PLAYING && this.gameStatus !== GAMESTATUS.PAUSE) return
         const { cols, rows, mapData } = this.matchingData
         let keys = Array.from(mapData.keys());
         let values = Array.from(mapData.values()).map(item => JSON.parse(JSON.stringify(item))).filter(value => !value.isEmpty && !value.isMatched)
@@ -364,7 +440,7 @@ export class MatchingGame extends Component {
     // 检查连连看是否死局
     checkTableStatus() {
         if (!this.checkTableCanMatch()) {
-            this.setGameStatus(GAMESTATUS.PENDING)
+            this.setGameStatus(GAMESTATUS.PAUSE)
             console.log('成死局')
             this.shuffleTable()
             // TODO: 发送更新后台数据请求
@@ -392,13 +468,13 @@ export class MatchingGame extends Component {
             case GAMESTATUS.PLAYING:
 
                 break;
-            case GAMESTATUS.PENDING:
+            case GAMESTATUS.PAUSE:
 
                 break;
-            case GAMESTATUS.LOSE:
+            case GAMESTATUS.ENDED:
 
                 break;
-            case GAMESTATUS.WIN:
+            case GAMESTATUS.WAITING:
 
                 break;
             default:
