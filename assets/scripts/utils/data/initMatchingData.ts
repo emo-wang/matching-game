@@ -141,7 +141,7 @@ export function convertDataForClient(gameBoard: [][]): MatchingData {
             id++
         }
     }
-    console.log(`将服务端数据转为客户端`, convertedData)
+    // console.log(`将服务端数据转为客户端`, convertedData)
     return convertedData
 }
 
@@ -152,10 +152,11 @@ export function convertDataForServer(matchingdata: MatchingData): any {
     for (let i = 0; i < matchingdata.rows; i++) {
         convertedData.push([])
         for (let j = 0; j < matchingdata.cols; j++) {
-            convertedData[i].push(matchingdata.mapData.get(id).typeId)
+            const curData = matchingdata.mapData.get(id)
+            convertedData[i].push((curData.isEmpty || curData.isMatched) ? -1 : curData.typeId)
             id++
         }
     }
-    console.log(`将客户端数据转为服务端`, convertedData)
+    // console.log(`将客户端数据转为服务端`, convertedData)
     return convertedData
 }

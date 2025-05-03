@@ -243,19 +243,19 @@ export class GameLobby extends Component {
 
         this.CreateRoomErrorMsgInput.string = ''
 
-        // send to server
-        let roomInfo = {
+        const res = await this.postLobby({
             roomId,
             maxPlayers,
-            // ownerId: user._id // 从token中获取
-        }
-
-        const res = await this.postLobby(roomInfo)
+        })
         this.node.getChildByName('CreateRoom').active = false
 
         if (!res._id) return
-        // this.room_id = res._id
-        // this.clickRoom(this.room_id)
+
+        // 进入房间
+        DataManager.instance.set('roomInfo', {
+            room_id: res._id
+        });
+        director.loadScene('RoomScene')
     }
 
     onClickCancelCreateRoom() {

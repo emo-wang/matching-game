@@ -21,9 +21,9 @@ const TIMELIMIT = 60
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     private ws: WebSocket | null = null;
-    gameData: any = null;
-    matchingData: MatchingData =null; // 页面显示数据
-    matchingDatabyOthers: MatchingData[] =[];
+    gameData: any = null; // 用于发给服务端的
+    matchingData: MatchingData = null; // 页面显示数据
+    // matchingDatabyOthers: MatchingData[] = [];
     matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
@@ -34,6 +34,8 @@ export class MatchingGame extends Component {
     timeLeft: number = TIMELIMIT; // 剩余时间
     combos: number = 0; // 连续消除
     room_id: string = '' // room uuid
+
+    @property(Node) private OthersTable: Node = null!
 
     update(dt: number): void {
         switch (this.gameStatus) {
@@ -89,18 +91,35 @@ export class MatchingGame extends Component {
 
     }
 
-    initOtherPlayersTable() {
-        // TODO: 根据后台数据生成
+    updateOtherPlayersTable(pArr: [number, number][], userId: string) {
         const otherPlayers: any[] = this.gameData.players.filter((player: any) => player.userId !== AuthManager.getUser()._id)
-        const tables = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('table'))
-        const players = this.node.getChildByName('MatchingGamebyOthers').children.map(children => children.getChildByName('player'))
-        for (let i = 0; i < otherPlayers.length; i++) {
+
+        otherPlayers.forEach((player: any, i: number) => {
+            if (player.userId === userId) {
+                let keys: number[] = []
+                for (let i = 0; i < pArr.length; i++) {
+                   keys.push(this.convertXYtoId(pArr[i]))
+                }
+                const matchingNodes = this.OthersTable.children[i].getChildByName('table').children
+                keys.forEach((key,) => {
+                    if (matchingNodes[key]) { matchingNodes[key].active = false }
+                })
+            }
+        })
+    }
+
+    initOtherPlayersTable() {
+        const otherPlayers: any[] = this.gameData.players.filter((player: any) => player.userId !== AuthManager.getUser()._id)
+
+        otherPlayers.forEach((player: any, i: number) => {
             // WARNING: 这里没有深拷贝的，考虑到也就是用于生成UI，更新UI也只是根据节点顺序，不会有后续牵连
-            this.matchingDatabyOthers.push(convertDataForClient(otherPlayers[i].gameBoard));
-            const { cols, rows, mapData } = this.matchingDatabyOthers[i]
-            this.generateUIbyData('otherplayers', tables[i], cols, rows, mapData)
-            players[i].getComponent(Label).string = `Player${i + 1}`
-        }
+            const { cols, rows, mapData } = convertDataForClient(player.gameBoard)
+            let table = this.OthersTable.children[i].getChildByName('table')
+            // table.name = player.userId
+            this.generateUIbyData('otherplayers', table, cols, rows, mapData)
+            // 设置用户信息
+            this.OthersTable.children[i].getChildByName('player').getComponent(Label).string = player.username
+        })
     }
 
     initGameLogic() {
@@ -118,21 +137,51 @@ export class MatchingGame extends Component {
         this.ws.onmessage = (event) => {
             const wsdata = JSON.parse(event.data)
             console.log('收到ws消息:', wsdata);
+            // 当前玩家的gameBoard
+            let gameBoard = []
+
             switch (wsdata.type) {
+                // 连接上ws之后发送enter-room
+                case 'welcome':
+                    this.ws.send(JSON.stringify({
+                        type: 'enter-room',
+                        message: 'request to enter room',
+                        data: {
+                            roomId: this.room_id
+                        }
+                    }));
+                    break;
+
+                case 'enter-room':
+                    break;
+
                 case 'start-game':
-                    // TODO:开始游戏
                     this.gameData = wsdata.data
-                    // TODO:优化
-                    // console.log(`测试用`, initMatchingData(0))
-                    const gameBoard = wsdata.data.players.find((player: any) => player.userId === AuthManager.getUser()._id).gameBoard
+                    gameBoard = wsdata.data.players.find((player: any) => player.userId === AuthManager.getUser()._id).gameBoard
                     this.matchingData = convertDataForClient(gameBoard)
-                    console.log('matchingData', this.matchingData)
+                    // console.log('matchingData', this.matchingData)
                     this.initGameTable();
                     this.initMatchingArray();
                     this.timeLeft = TIMELIMIT
                     this.setGameStatus(GAMESTATUS.PLAYING)
                     this.checkTableStatus();
                     this.initOtherPlayersTable();
+                    break;
+
+                case 'update-game':
+                    console.log(`update-game`, wsdata.data)
+                    const { pArr, userId } = wsdata.data
+
+                    // update gameData
+                    this.gameData.players.forEach((player: any) => {
+                        if (player.userId === userId) {
+                            for (let i = 0; i < pArr.length; i++) {
+                                const [x, y] = pArr[i]
+                                player.gameBoard[x][y] = -1
+                            }
+                        }
+                    })
+                    this.updateOtherPlayersTable(pArr, userId)
                     break;
 
                 case 'pause-game':
@@ -189,7 +238,7 @@ export class MatchingGame extends Component {
                 }
             }
         }
-        console.log('生成matchingArray', this.matchingArray)
+        // console.log('生成matchingArray', this.matchingArray)
     }
 
     updateMatchingArray(keys: number[], values: number[]) {
@@ -236,11 +285,6 @@ export class MatchingGame extends Component {
                 }
             }
         }
-    }
-
-    // TODO: 其他用户数据发生变化后更新UI
-    updateOthersTable() {
-
     }
 
     updateMatchingTable(keys: number[]) {
@@ -305,13 +349,7 @@ export class MatchingGame extends Component {
             console.log('room_id is null')
             return
         }
-        this.ws.send(JSON.stringify({
-            type: 'start-game',
-            message: 'request to start game',
-            data: {
-                roomId: this.room_id
-            }
-        }));
+        this.sendGameStart()
     }
 
     onClickRestartGame() {
@@ -349,13 +387,18 @@ export class MatchingGame extends Component {
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
             this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
 
+            const p1: [number, number] = this.convertIdtoXY(this.lastClickedCell.id)
+            const p2: [number, number] = this.convertIdtoXY(clickCell.id)
+            // console.log(p1, p2)
+            this.sendGameUpdate([p1, p2])
+
             if (this.isGameEnd()) {
                 this.setGameStatus(GAMESTATUS.ENDED)
                 console.log('游戏结束')
             } else {
                 this.checkTableStatus()
             }
-            // TODO: 发送更新后台数据请求
+
             this.setLastClickedCell(null)
         } else {
             this.setLastClickedCell(clickCell)
@@ -376,7 +419,6 @@ export class MatchingGame extends Component {
             mapData.get(keys[i]).type = values[valueIndex].type
             valueIndex++
         }
-
 
         // 重置状态！
         this.setGameStatus(GAMESTATUS.PLAYING)
@@ -494,7 +536,29 @@ export class MatchingGame extends Component {
 
     //————————————————————————请求接口———————————————————————————————————————
 
+    sendGameStart() {
+        this.ws.send(JSON.stringify({
+            type: 'start-game',
+            message: 'request to start game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
+    }
 
+    // 发送更新的节点
+    sendGameUpdate(pArr: [number, number][]) {
+        this.ws.send(JSON.stringify({
+            type: 'update-game',
+            message: 'request to update game',
+            data: {
+                roomId: this.room_id,
+                userId: AuthManager.getUser()._id,
+                // [x, y]
+                eliminatedNode: pArr
+            }
+        }));
+    }
 
     //——————————————————————————————————————————————————————————————————————
 
@@ -534,6 +598,16 @@ export class MatchingGame extends Component {
     // 把id转换成matchingArray中的坐标
     convertIdtoPos(id: number): [number, number] {
         return [Math.floor(id / this.matchingData.cols) + 1, (id % this.matchingData.cols) + 1];
+    }
+
+    // 把id转换成服务器数组中的坐标
+    convertIdtoXY(id: number): [number, number] {
+        return [Math.floor(id / this.matchingData.cols), (id % this.matchingData.cols)];
+    }
+
+    // 把坐标转换成服务器数组中的id
+    convertXYtoId([x, y]: [number, number]): number {
+        return x * this.matchingData.cols + y;
     }
 
     checkCellBlocked(id: number) {
