@@ -1,4 +1,4 @@
-import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game } from 'cc';
+import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game, Color } from 'cc';
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray, convertDataForClient, convertDataForServer } from './utils/data/initMatchingData';
 import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
@@ -91,6 +91,18 @@ export class MatchingGame extends Component {
 
     }
 
+    initGameTable() {
+        const { cols, rows, mapData } = this.matchingData
+        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
+    }
+
+    updateGameTable(keys: number[]) {
+        const matchingNodes = this.node.getChildByName('table').children
+        keys.forEach((key,) => {
+            if (matchingNodes[key]) { matchingNodes[key].active = false }
+        })
+    }
+
     updateOtherPlayersTable(pArr: [number, number][], userId: string) {
         const otherPlayers: any[] = this.gameData.players.filter((player: any) => player.userId !== AuthManager.getUser()._id)
 
@@ -169,7 +181,6 @@ export class MatchingGame extends Component {
                     break;
 
                 case 'update-game':
-                    console.log(`update-game`, wsdata.data)
                     const { pArr, userId } = wsdata.data
 
                     // update gameData
@@ -249,10 +260,6 @@ export class MatchingGame extends Component {
         // console.log('更新matchingArray', this.matchingArray)
     }
 
-    initGameTable() {
-        const { cols, rows, mapData } = this.matchingData
-        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
-    }
 
     // TODO: 优化
     generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
@@ -285,13 +292,6 @@ export class MatchingGame extends Component {
                 }
             }
         }
-    }
-
-    updateMatchingTable(keys: number[]) {
-        const matchingNodes = this.node.getChildByName('table').children
-        keys.forEach((key,) => {
-            if (matchingNodes[key]) { matchingNodes[key].active = false }
-        })
     }
 
     onClickHint() {
@@ -385,11 +385,10 @@ export class MatchingGame extends Component {
             // console.log('已连接id', this.lastClickedCell.id, clickCell.id)
             this.updateMatchingArray([this.lastClickedCell.id, clickCell.id], [-1, -1])
             this.updateMatchingData([this.lastClickedCell.id, clickCell.id])
-            this.updateMatchingTable([this.lastClickedCell.id, clickCell.id])
+            this.updateGameTable([this.lastClickedCell.id, clickCell.id])
 
             const p1: [number, number] = this.convertIdtoXY(this.lastClickedCell.id)
             const p2: [number, number] = this.convertIdtoXY(clickCell.id)
-            // console.log(p1, p2)
             this.sendGameUpdate([p1, p2])
 
             if (this.isGameEnd()) {
@@ -502,13 +501,13 @@ export class MatchingGame extends Component {
     setLastClickedCell(clickedCell: MatchingCell | null) {
         // 取消之前的高亮 无论有没有新的
         if (this.lastClickedCell !== null) {
-            let graphics = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
-            drawBackgroundBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+            let sprite = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
+            sprite.color = new Color('FFFFFF')
         }
         // 设置新的高亮
         if (clickedCell !== null) {
-            let graphics = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Graphics)
-            drawHighlightBlock(graphics, -this.cellHeight / 2, -this.cellWidth / 2, this.cellHeight, this.cellWidth)
+            let sprite = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
+            sprite.color = new Color('DC81FF')
         }
         this.lastClickedCell = clickedCell
     }
