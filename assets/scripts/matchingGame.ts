@@ -36,13 +36,18 @@ export class MatchingGame extends Component {
     room_id: string = '' // room uuid
 
     @property(Node) private OthersTable: Node = null!
+    @property(Node) private Table: Node = null!
+    @property(Node) private MatchingCellSample: Node = null!
+    @property(Node) private OthersMatchingCellSample: Node = null!
+    @property(Node) private GameStatusNode: Node = null!
+    @property(Node) private GameTimeBarNode: Node = null!
 
     update(dt: number): void {
         switch (this.gameStatus) {
             case GAMESTATUS.PLAYING:
                 // TODO: set time limit
                 // this.timeLeft -= dt;
-                this.node.getChildByName('timebar').getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
+                this.GameTimeBarNode.getComponent(ProgressBar).progress = this.timeLeft / TIMELIMIT;
                 if (this.timeLeft <= 0) {
                     this.setGameStatus(GAMESTATUS.ENDED);
                 }
@@ -93,11 +98,11 @@ export class MatchingGame extends Component {
 
     initGameTable() {
         const { cols, rows, mapData } = this.matchingData
-        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
+        this.generateUIbyData('self', this.Table, cols, rows, mapData)
     }
 
     updateGameTable(keys: number[]) {
-        const matchingNodes = this.node.getChildByName('table').children
+        const matchingNodes = this.Table.children
         keys.forEach((key,) => {
             if (matchingNodes[key]) { matchingNodes[key].active = false }
         })
@@ -110,7 +115,7 @@ export class MatchingGame extends Component {
             if (player.userId === userId) {
                 let keys: number[] = []
                 for (let i = 0; i < pArr.length; i++) {
-                   keys.push(this.convertXYtoId(pArr[i]))
+                    keys.push(this.convertXYtoId(pArr[i]))
                 }
                 const matchingNodes = this.OthersTable.children[i].getChildByName('table').children
                 keys.forEach((key,) => {
@@ -263,8 +268,8 @@ export class MatchingGame extends Component {
 
     // TODO: 优化
     generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
-        // let table = this.node.getChildByName('table')
-        let sample = type === 'self' ? this.node.getChildByName('matchingCell') : this.node.getChildByName('matchingCellbyOthers')
+        // let table = this.Table
+        let sample = type === 'self' ? this.MatchingCellSample : this.OthersMatchingCellSample
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
         if (type === 'self') {
@@ -424,7 +429,7 @@ export class MatchingGame extends Component {
         this.lastClickedCell = null
         this.matchingLink = []
         this.initMatchingArray()
-        this.generateUIbyData('self', this.node.getChildByName('table'), cols, rows, mapData)
+        this.generateUIbyData('self', this.Table, cols, rows, mapData)
         // console.log('重置状态！', mapData, this.matchingArray)
 
         if (!this.checkTableCanMatch()) {
@@ -434,7 +439,7 @@ export class MatchingGame extends Component {
 
     // 提示线
     showLink(route: { x: number, y: number }[], timeout: number = 1) {
-        let table = this.node.getChildByName('table');
+        let table = this.Table;
         const { cols, rows } = this.matchingData;
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
@@ -501,12 +506,12 @@ export class MatchingGame extends Component {
     setLastClickedCell(clickedCell: MatchingCell | null) {
         // 取消之前的高亮 无论有没有新的
         if (this.lastClickedCell !== null) {
-            let sprite = this.node.getChildByName('table')?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
+            let sprite = this.Table?.children[this.lastClickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
             sprite.color = new Color('FFFFFF')
         }
         // 设置新的高亮
         if (clickedCell !== null) {
-            let sprite = this.node.getChildByName('table')?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
+            let sprite = this.Table?.children[clickedCell.id]?.getChildByName('bg')?.getComponent(Sprite)
             sprite.color = new Color('DC81FF')
         }
         this.lastClickedCell = clickedCell
@@ -514,7 +519,7 @@ export class MatchingGame extends Component {
 
     setGameStatus(status: String) {
         this.gameStatus = status;
-        this.node.getChildByName('status').getComponent(Label).string = status.toString();
+        this.GameStatusNode.getComponent(Label).string = status.toString();
         switch (status) {
             case GAMESTATUS.PLAYING:
 

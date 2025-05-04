@@ -1035,7 +1035,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42.23803896898803,
+      "width": 0,
       "height": 50.400000000000006
     },
     "_anchorPoint": {
@@ -1065,7 +1065,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "label",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 21.5390625,
@@ -1413,7 +1413,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42.23803896898803,
+      "width": 0,
       "height": 50.400000000000006
     },
     "_anchorPoint": {
@@ -1443,7 +1443,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "label",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 21.5390625,
@@ -1791,7 +1791,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42.23803896898803,
+      "width": 0,
       "height": 50.400000000000006
     },
     "_anchorPoint": {
@@ -1821,7 +1821,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "label",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 21.5390625,
@@ -2169,7 +2169,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42.23803896898803,
+      "width": 0,
       "height": 50.400000000000006
     },
     "_anchorPoint": {
@@ -2199,7 +2199,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "label",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 21.5390625,
@@ -2547,7 +2547,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 42.23803896898803,
+      "width": 0,
       "height": 50.400000000000006
     },
     "_anchorPoint": {
@@ -2577,7 +2577,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "label",
+    "_string": "",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 21.5390625,
@@ -6340,6 +6340,21 @@
     "__prefab": null,
     "OthersTable": {
       "__id__": 43
+    },
+    "Table": {
+      "__id__": 97
+    },
+    "MatchingCellSample": {
+      "__id__": 22
+    },
+    "OthersMatchingCellSample": {
+      "__id__": 6
+    },
+    "GameStatusNode": {
+      "__id__": 104
+    },
+    "GameTimeBarNode": {
+      "__id__": 176
     },
     "_id": "f8tZ2pBLBJXref9BifGCzw"
   },
