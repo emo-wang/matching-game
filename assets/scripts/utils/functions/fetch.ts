@@ -29,7 +29,9 @@ async function fetchAPI(endpoint: string, options: FetchOptions = { method: 'GET
     try {
         const response = await fetch(url, config);
         if (!response.ok) { // 检查HTTP状态码
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // console.log(response)
+            const errorData = await response.json()
+            throw new Error(errorData.message || 'Request failed');
         }
         return await response.json(); // 假设服务器响应是JSON
     } catch (error) {

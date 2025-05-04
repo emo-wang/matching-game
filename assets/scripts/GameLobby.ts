@@ -1,5 +1,6 @@
 import { _decorator, native, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, EditBox } from 'cc';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
+import { ErrorOverlay } from './utils/prefabScirpts/ErrorOverlay';
 import fetchAPI from './utils/functions/fetch';
 import { DataManager } from './utils/functions/dataManager';
 import AuthManager from './utils/data/AuthManager';
@@ -55,6 +56,7 @@ export class GameLobby extends Component {
     }
 
     start() {
+        ErrorOverlay.initErrorHandler()
         this.loadGameResources(() => {
             this.initGameLobby();
         });

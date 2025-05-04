@@ -1,6 +1,5 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game, Color } from 'cc';
 import { initMatchingData, MatchingData, MatchingCell, shuffleArray, convertDataForClient, convertDataForServer } from './utils/data/initMatchingData';
-import { drawHighlightBlock, drawBackgroundBlock } from './BackgroundBlock';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { DataManager } from './utils/functions/dataManager';
 import AuthManager from './utils/data/AuthManager';
@@ -13,8 +12,6 @@ const GAMESTATUS = {
     PLAYING: 'playing',
     ENDED: 'ended',
 }
-
-
 
 const TIMELIMIT = 60
 
@@ -66,6 +63,7 @@ export class MatchingGame extends Component {
     }
 
     start() {
+        // setupGlobalErrorHandler()
         this.loadGameResources(() => {
             this.initWebSocket();
             this.initGameLogic();
