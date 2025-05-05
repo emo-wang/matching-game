@@ -98,8 +98,8 @@ export class GameLobby extends Component {
 
         this.ws.onmessage = (event) => {
             const wsdata = JSON.parse(event.data)
-            console.log('收到ws消息:', wsdata);
             if (wsdata.type === 'update-lobbies') {
+                console.log('update-lobbies:', wsdata);
                 this.roomList = wsdata.data
                 this.initRoomList(wsdata.data)
             }

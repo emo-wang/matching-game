@@ -32,6 +32,9 @@ export class MatchingGame extends Component {
     combos: number = 0; // 连续消除
     room_id: string = '' // room uuid
 
+
+    @property(Label) private playerInfoLabel: Label = null!
+    @property(Label) private roomInfoLabel: Label = null!
     @property(Node) private OthersTable: Node = null!
     @property(Node) private Table: Node = null!
     @property(Node) private MatchingCellSample: Node = null!
@@ -151,7 +154,7 @@ export class MatchingGame extends Component {
 
         this.ws.onmessage = (event) => {
             const wsdata = JSON.parse(event.data)
-            console.log('收到ws消息:', wsdata);
+            console.log('gamews:', wsdata);
             // 当前玩家的gameBoard
             let gameBoard = []
 
@@ -167,7 +170,15 @@ export class MatchingGame extends Component {
                     }));
                     break;
 
+                case 'player-exit':
+                    // 有玩家退出，自己退出会关闭ws所以不会触发
+                    this.updateRoomDisplay(wsdata.data)
+                    break;
+
                 case 'enter-room':
+                    // 有任何玩家进入房间都会触发enter-room，自己进入也会触发
+                    this.updateRoomDisplay(wsdata.data)
+
                     break;
 
                 case 'start-game':
@@ -218,6 +229,7 @@ export class MatchingGame extends Component {
         };
 
         this.ws.onclose = () => {
+            // director.loadScene('LobbyScene')
             console.log('WebSocket 连接关闭');
         };
 
@@ -267,7 +279,6 @@ export class MatchingGame extends Component {
         // console.log('更新matchingArray', this.matchingArray)
     }
 
-
     // TODO: 优化
     generateUIbyData(type: 'self' | 'otherplayers', table: Node, cols: number, rows: number, mapData: Map<number, MatchingCell>) {
         // let table = this.Table
@@ -301,6 +312,21 @@ export class MatchingGame extends Component {
         }
     }
 
+    updateRoomDisplay(roomData: any) {
+        const { roomId, status, config, players } = roomData;
+        const infoText = `Room ID: ${roomId}\n` +
+            // `Status: ${status}\n` +
+            `Mode: ${config.mode}\n` +
+            `Difficulty: ${config.difficulty}\n` +
+            `Players: ${players.length} / ${config.maxPlayers}`;
+
+        this.roomInfoLabel.string = infoText;
+        const playerText = players.map((player: any, index: number) => {
+            return `Player ${index + 1}: ${player.username} | Score: ${player.score} | Ready: ${player.isReady ? 'Yes' : 'No'}`;
+        }).join('\n');
+        this.playerInfoLabel.string = playerText;
+    }
+
     onClickHint() {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
         this.showLink(this.matchingLink, 1)
@@ -314,6 +340,7 @@ export class MatchingGame extends Component {
         ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined,
             async () => {
                 await this.exitRoom({ roomId: this.room_id })
+                this.ws.close()
                 this.room_id = null
                 DataManager.instance.set('roomInfo', {
                     room_id: null
