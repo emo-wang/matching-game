@@ -184,9 +184,10 @@ export class MatchingGame extends Component {
                     break;
 
                 case 'update-game':
-                    const { pArr, userId } = wsdata.data
+                    // 更新逻辑，自己的操作是本地完成（包括消除和结束游戏），然后将操作发送到ws，让其他玩家更新状态。
+                    const { pArr, userId, isEnded } = wsdata.data
 
-                    // update gameData
+                    // update gameData(others)
                     this.gameData.players.forEach((player: any) => {
                         if (player.userId === userId) {
                             for (let i = 0; i < pArr.length; i++) {
@@ -196,6 +197,9 @@ export class MatchingGame extends Component {
                         }
                     })
                     this.updateOtherPlayersTable(pArr, userId)
+                    if (isEnded) {
+                        this.setGameStatus(GAMESTATUS.ENDED)
+                    }
                     break;
 
                 case 'pause-game':
@@ -392,12 +396,13 @@ export class MatchingGame extends Component {
 
             const p1: [number, number] = this.convertIdtoXY(this.lastClickedCell.id)
             const p2: [number, number] = this.convertIdtoXY(clickCell.id)
-            this.sendGameUpdate([p1, p2])
 
             if (this.isGameEnd()) {
+                this.sendGameUpdate([p1, p2], true)
                 this.setGameStatus(GAMESTATUS.ENDED)
-                console.log('游戏结束')
+                console.log('Game is ended')
             } else {
+                this.sendGameUpdate([p1, p2], false)
                 this.checkTableStatus()
             }
 
@@ -538,6 +543,7 @@ export class MatchingGame extends Component {
 
     //————————————————————————请求接口———————————————————————————————————————
 
+
     sendGameStart() {
         this.ws.send(JSON.stringify({
             type: 'start-game',
@@ -548,13 +554,13 @@ export class MatchingGame extends Component {
         }));
     }
 
-    // 发送更新的节点
-    sendGameUpdate(pArr: [number, number][]) {
+    sendGameUpdate(pArr: [number, number][], isEnded: boolean) {
         this.ws.send(JSON.stringify({
             type: 'update-game',
             message: 'request to update game',
             data: {
                 roomId: this.room_id,
+                isEnded,
                 userId: AuthManager.getUser()._id,
                 // [x, y]
                 eliminatedNode: pArr
