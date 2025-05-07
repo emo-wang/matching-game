@@ -31,6 +31,7 @@ export class MatchingGame extends Component {
     timeLeft: number = TIMELIMIT; // 剩余时间
     combos: number = 0; // 连续消除
     room_id: string = '' // room uuid
+    isReadyToPlay: boolean = false; //当前玩家是否已准备开始游戏
 
 
     @property(Label) private playerInfoLabel: Label = null!
@@ -165,13 +166,18 @@ export class MatchingGame extends Component {
                         type: 'enter-room',
                         message: 'request to enter room',
                         data: {
-                            roomId: this.room_id
+                            roomId: this.room_id,
+                            userId: AuthManager.getUser()._id
                         }
                     }));
                     break;
 
                 case 'player-exit':
                     // 有玩家退出，自己退出会关闭ws所以不会触发
+                    this.updateRoomDisplay(wsdata.data)
+                    break;
+
+                case 'player-ready':
                     this.updateRoomDisplay(wsdata.data)
                     break;
 
@@ -229,7 +235,7 @@ export class MatchingGame extends Component {
         };
 
         this.ws.onclose = () => {
-            // director.loadScene('LobbyScene')
+            director.loadScene('LobbyScene')
             console.log('WebSocket 连接关闭');
         };
 
@@ -349,40 +355,25 @@ export class MatchingGame extends Component {
             })
     }
 
+    onClickReady() {
+        if (this.isReadyToPlay) return
+        this.sendPlayerReady(true)
+    }
+
+    onClickCancelReay() {
+        if (!this.isReadyToPlay) return
+        this.sendPlayerReady(false)
+    }
+
     onClickPauseGame() {
-        if (!this.room_id) {
-            console.log('room_id is null')
-            return
-        }
-        this.ws.send(JSON.stringify({
-            type: 'pause-game',
-            message: 'request to pause game',
-            data: {
-                roomId: this.room_id
-            }
-        }));
+        this.sendGamePause()
     }
 
     onClickEndGame() {
-        if (!this.room_id) {
-            console.log('room_id is null')
-            return
-        }
-        this.ws.send(JSON.stringify({
-            type: 'end-game',
-            message: 'request to end game',
-            data: {
-                roomId: this.room_id
-            }
-        }));
+        this.sendGameEnd()
     }
 
     onClickStartGame() {
-        // TODO：封装进wsManager里
-        if (!this.room_id) {
-            console.log('room_id is null')
-            return
-        }
         this.sendGameStart()
     }
 
@@ -467,7 +458,6 @@ export class MatchingGame extends Component {
         }
     }
 
-    // 提示线
     showLink(route: { x: number, y: number }[], timeout: number = 1) {
         let table = this.Table;
         const { cols, rows } = this.matchingData;
@@ -523,7 +513,6 @@ export class MatchingGame extends Component {
         return false;
     }
 
-    // 检查连连看是否死局
     checkTableStatus() {
         if (!this.checkTableCanMatch()) {
             this.setGameStatus(GAMESTATUS.PAUSE)
@@ -570,8 +559,43 @@ export class MatchingGame extends Component {
 
     //————————————————————————请求接口———————————————————————————————————————
 
+    async exitRoom(body: any): Promise<any> {
+        return await fetchAPI('/game/exit', { method: 'POST', body });
+    }
+
+    sendGamePause() {
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'pause-game',
+            message: 'request to pause game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
+    }
+
+    sendGameEnd() {
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'end-game',
+            message: 'request to end game',
+            data: {
+                roomId: this.room_id
+            }
+        }));
+    }
 
     sendGameStart() {
+        if (!this.room_id) {
+            console.log('room_id is null')
+            return
+        }
         this.ws.send(JSON.stringify({
             type: 'start-game',
             message: 'request to start game',
@@ -591,6 +615,22 @@ export class MatchingGame extends Component {
                 userId: AuthManager.getUser()._id,
                 // [x, y]
                 eliminatedNode: pArr
+            }
+        }));
+    }
+
+    sendPlayerReady(isReady: boolean) {
+        if (!this.room_id || !AuthManager.getUser()._id) {
+            console.log('room_id or user_id is null')
+            return
+        }
+        this.ws.send(JSON.stringify({
+            type: 'player-ready',
+            message: 'player ready or cancel ready',
+            data: {
+                isReady,
+                roomId: this.room_id,
+                userId: AuthManager.getUser()._id,
             }
         }));
     }
@@ -714,12 +754,5 @@ export class MatchingGame extends Component {
         }
 
         return { matched: false, route: [] };
-    }
-
-
-    //————————————————————————————————————————————————————————————————————————
-
-    async exitRoom(body: any): Promise<any> {
-        return await fetchAPI('/game/exit', { method: 'POST', body });
     }
 }
