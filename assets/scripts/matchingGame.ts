@@ -178,6 +178,11 @@ export class MatchingGame extends Component {
                     break;
 
                 case 'player-ready':
+                    wsdata.data.players.forEach((player: any) => {
+                        if (player.userId === AuthManager.getUser()._id) {
+                            this.isReadyToPlay = player.isReady
+                        }
+                    })
                     this.updateRoomDisplay(wsdata.data)
                     break;
 
@@ -360,7 +365,7 @@ export class MatchingGame extends Component {
         this.sendPlayerReady(true)
     }
 
-    onClickCancelReay() {
+    onClickCancelReady() {
         if (!this.isReadyToPlay) return
         this.sendPlayerReady(false)
     }

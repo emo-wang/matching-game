@@ -6831,7 +6831,7 @@
     },
     "component": "",
     "_componentId": "7cd93coij9LA5sftZRolJJK",
-    "handler": "onClickReady",
+    "handler": "onClickCancelReady",
     "customEventData": ""
   },
   {

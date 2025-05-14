@@ -146,11 +146,11 @@ export class GameLobby extends Component {
         roomList.forEach((item: any) => {
             let newNode = instantiate(this.RoomListItem)
             newNode.active = true
-            newNode.getChildByName('RoomId').getComponent(Label).string = item.roomId
-            newNode.getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.maxPlayers}`
-            newNode.getChildByName('Status').getComponent(Label).string = item.status
-            newNode.getChildByName('Owner').getComponent(Label).string = item.owner.username
-            newNode.getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
+            newNode.getChildByName('Info').getChildByName('RoomId').getComponent(Label).string = item.roomId
+            newNode.getChildByName('Info').getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.maxPlayers}`
+            newNode.getChildByName('Info').getChildByName('Status').getComponent(Label).string = item.status
+            newNode.getChildByName('Info').getChildByName('Owner').getComponent(Label).string = item.owner.username
+            newNode.getChildByName('Info').getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
             // TODO: 优化，name一般是用来给节点命名的
             newNode.name = item._id
             newNode.on(Node.EventType.TOUCH_END, () => this.clickRoom(item._id), this)
@@ -161,19 +161,17 @@ export class GameLobby extends Component {
     // —————————————————————————————————————————
 
     clickRoom(id: string) {
-        const selColor = new Color(255, 182, 193, 140);
-        const unselColor = new Color(140, 140, 140, 140);
         if (this.room_id === id) {
-            this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = unselColor;
+            this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
             this.room_id = null;
             return;
         }
 
         if (this.room_id) {
-            this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = unselColor;
+            this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
         }
         this.room_id = id
-        this.RoomListContainer.getChildByName(this.room_id).getComponent(Sprite).color = selColor;
+        this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = true;
     }
 
     // ————————————onclick事件函数———————————
@@ -205,7 +203,7 @@ export class GameLobby extends Component {
             return
         }
 
-        ConfirmDialog.show(`确认要加入这个房间吗？`, `房间id: ${this.room_id}`, undefined, undefined,
+        ConfirmDialog.show(undefined, `Are you sure you want to join this room?`, undefined, undefined,
             async () => {
                 await this.enterRoom({ roomId: this.room_id })
                 DataManager.instance.set('roomInfo', {
@@ -219,7 +217,7 @@ export class GameLobby extends Component {
 
     onClickCreateRoom(e: Event) {
         if (!AuthManager.isLoggedIn()) {
-            this.setGErrorMsg("请先登录")
+            this.setGErrorMsg("Please login.")
             return
         }
         this.node.getChildByName('CreateRoom').active = true
@@ -233,13 +231,13 @@ export class GameLobby extends Component {
 
         // validate form
         if (!roomId) {
-            this.CreateRoomErrorMsgInput.string = '房间id不能为空'
+            this.CreateRoomErrorMsgInput.string = 'Room ID empty'
             return
         }
 
         const user = AuthManager.getUser()
         if (!user._id || !user.username) {
-            this.CreateRoomErrorMsgInput.string = '获取不到用户信息'
+            this.CreateRoomErrorMsgInput.string = 'Userinfo Error'
             return
         }
 
@@ -282,7 +280,7 @@ export class GameLobby extends Component {
         console.log('确认登录/或者创建新账户', this.usernameInput.string, this.userPasswordInput.string,)
         // TODO： 前端做正则校验
         if (!this.usernameInput.string || !this.userPasswordInput.string) {
-            this.loginErrorMsgInput.string = '用户名和密码不能为空'
+            this.loginErrorMsgInput.string = 'Username or password empty.'
             return
         }
 
@@ -292,7 +290,7 @@ export class GameLobby extends Component {
                 username: this.usernameInput.string,
                 password: this.userPasswordInput.string,
             })
-            this.setGSuccessMsg("创建新用户成功 > o <! 请登录")
+            this.setGSuccessMsg("Create new user successfully, please login.")
             this.resetLoginForm()
 
         }
@@ -304,12 +302,12 @@ export class GameLobby extends Component {
                 password: this.userPasswordInput.string
             })
             if (!res.user || !res.expiresIn || !res.token) {
-                this.setGErrorMsg("返回用户数据错误！请检查网络或者重新登录")
+                this.setGErrorMsg("Failed to retrieve user data! Please check your network or log in again.")
                 return
             }
             AuthManager.login(res)
             this.setLoginStatus()
-            this.setGSuccessMsg("登录成功")
+            this.setGSuccessMsg("Login successful.")
             this.onClickCancelLogIn()
         }
     }
@@ -324,7 +322,7 @@ export class GameLobby extends Component {
             AuthManager.logout()
             this.setLogoutStatus()
         }
-        ConfirmDialog.show(`确定退出这个账号吗？`, `用户: ${this.username.string}`, undefined, undefined, callback, undefined)
+        ConfirmDialog.show(undefined, `Are you sure you want to log out of this account?`, undefined, undefined, callback, undefined)
     }
 
     onClickCreateNewAccount() {
@@ -361,7 +359,7 @@ export class GameLobby extends Component {
     }
 
     setLogoutStatus() {
-        this.username.string = "游客"
+        this.username.string = "Guest"
         this.loginBtn.active = true
         this.logoutBtn.active = false
     }
