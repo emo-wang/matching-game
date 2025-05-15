@@ -161,17 +161,22 @@ export class GameLobby extends Component {
     // —————————————————————————————————————————
 
     clickRoom(id: string) {
+        const unselColor = new Color(29, 177, 255, 50)
+        const selColor = new Color(29, 177, 255, 150)
         if (this.room_id === id) {
-            this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
+            this.RoomListContainer.getChildByName(this.room_id).getChildByName('bg').getComponent(Sprite).color = unselColor;
+            // this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
             this.room_id = null;
             return;
         }
 
         if (this.room_id) {
-            this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
+            this.RoomListContainer.getChildByName(this.room_id).getChildByName('bg').getComponent(Sprite).color = unselColor;
+            // this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = false;
         }
         this.room_id = id
-        this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = true;
+        this.RoomListContainer.getChildByName(this.room_id).getChildByName('bg').getComponent(Sprite).color = selColor;
+        // this.RoomListContainer.getChildByName(this.room_id).getChildByName('highlight').active = true;
     }
 
     // ————————————onclick事件函数———————————
@@ -271,7 +276,7 @@ export class GameLobby extends Component {
     // ———————————————用户相关———————————————
 
     onClickLogIn() {
-        this.node.getChildByName('LogInForm').active = true
+        this.node.getChildByName('LoginForm').active = true
     }
 
     // TODO: 错误处理
@@ -313,7 +318,7 @@ export class GameLobby extends Component {
     }
 
     onClickCancelLogIn() {
-        this.node.getChildByName('LogInForm').active = false
+        this.node.getChildByName('LoginForm').active = false
         this.resetLoginForm()
     }
 
