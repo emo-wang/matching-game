@@ -1,5 +1,5 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game, Color } from 'cc';
-import { initMatchingData, MatchingData, MatchingCell, shuffleArray, convertDataForClient, convertDataForServer } from './utils/data/initMatchingData';
+import { MatchingData, MatchingCell, shuffleArray, convertDataForClient } from './utils/data/initMatchingData';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { DataManager } from './utils/functions/dataManager';
 import AuthManager from './utils/data/AuthManager';
@@ -20,7 +20,6 @@ export class MatchingGame extends Component {
     private ws: WebSocket | null = null;
     gameData: any = null; // 用于发给服务端的
     matchingData: MatchingData = null; // 页面显示数据
-    // matchingDatabyOthers: MatchingData[] = [];
     matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
     matchingLink = [] // 提示线
     lastClickedCell: MatchingCell | null = null // 上一次点击的格子
@@ -33,6 +32,7 @@ export class MatchingGame extends Component {
     room_id: string = '' // room uuid
     isReadyToPlay: boolean = false; //当前玩家是否已准备开始游戏
 
+    @property(Graphics) private graphicsLink: Graphics = null!
 
     @property(Label) private playerInfoLabel: Label = null!
     @property(Label) private roomInfoLabel: Label = null!
@@ -67,7 +67,6 @@ export class MatchingGame extends Component {
     }
 
     start() {
-        // setupGlobalErrorHandler()
         this.loadGameResources(() => {
             this.initWebSocket();
             this.initGameLogic();
@@ -348,7 +347,7 @@ export class MatchingGame extends Component {
             console.log('未获取到房间号')
             return
         }
-        ConfirmDialog.show(undefined, '确认要退出房间吗？', undefined, undefined,
+        ConfirmDialog.show(undefined, 'Are you sure you want to exit the room.', undefined, undefined,
             async () => {
                 await this.exitRoom({ roomId: this.room_id })
                 this.ws.close()
@@ -469,8 +468,8 @@ export class MatchingGame extends Component {
         const { width: tableWidth, height: tableHeight } = table.getComponent(UITransform);
         const cellSize = Math.min(tableWidth / cols, tableHeight / rows);
 
-        let graphicsNode = this.node.getChildByName('graphicsLink');
-        let graphics = graphicsNode.getComponent(Graphics);
+        // let graphicsNode = this.node.getChildByName('graphicsLink');
+        let graphics = this.graphicsLink
         graphics.clear();
 
         if (route.length > 0) {
@@ -484,7 +483,7 @@ export class MatchingGame extends Component {
             graphics.stroke();
         }
 
-        this.startFadeOut(graphicsNode, timeout, () => { graphics.clear() })
+        this.startFadeOut(this.graphicsLink.node, timeout, () => { graphics.clear() })
     }
 
     checkTableCanMatch() {

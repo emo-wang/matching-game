@@ -1,5 +1,6 @@
 import { _decorator, native, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, EditBox } from 'cc';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
+import { Toast } from './utils/prefabScirpts/ToastPop';
 import { ErrorOverlay } from './utils/prefabScirpts/ErrorOverlay';
 import fetchAPI from './utils/functions/fetch';
 import { DataManager } from './utils/functions/dataManager';
@@ -24,9 +25,6 @@ export class GameLobby extends Component {
     // createroom form nodes
     @property(EditBox) private roomIdInput: EditBox = null!;
     @property(EditBox) private maxPlayersInput: EditBox = null!;
-    // @property(Toggle) private isPrivateToggle: Toggle = null!;
-    // @property(Node) private mapTypeNode: Node = null!;
-    // @property(EditBox) private passwordInput: EditBox = null!;
     @property(Label) private CreateRoomErrorMsgInput: Label = null!;
 
     // login/ logout
@@ -36,8 +34,7 @@ export class GameLobby extends Component {
     @property(Label) private title: Label = null!;
     @property(EditBox) private usernameInput: EditBox = null!;
     @property(EditBox) private userPasswordInput: EditBox = null!;
-    @property(EditBox) private userEmailInput: EditBox = null!;
-    @property(Label) private loginErrorMsgInput: Label = null!;
+    // @property(Label) private loginErrorMsgInput: Label = null!;
 
     // user info
     @property(Label) private username: Label = null!;
@@ -46,9 +43,7 @@ export class GameLobby extends Component {
     @property(Node) private logoutBtn: Node = null!;
 
     // global msg
-    // TODO: 可以封装到基础类中
-    @property(Label) private gErrorMsgLabel: Label = null!;
-    @property(Label) private gSuccessMsgLabel: Label = null!;
+    @property(Node) private ToastPopNode: Node = null!
 
 
     onLoad() {
@@ -183,14 +178,14 @@ export class GameLobby extends Component {
 
     onClickDeleteRoom() {
         if (!this.room_id) {
-            this.setGErrorMsg("请先选择房间")
+            this.ToastPopNode.getComponent(Toast)?.show("Please select a room.", 2);
             return
         }
         if (!AuthManager.isLoggedIn()) {
-            this.setGErrorMsg("请先登录")
+            this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
             return
         }
-        ConfirmDialog.show(`确认要删除这个房间吗？`, `房间id: ${this.room_id}`, undefined, undefined,
+        ConfirmDialog.show(undefined, 'Are you sure you want to delete this room?', undefined, undefined,
             async () => {
                 await this.deleteLobby(this.room_id)
                 this.room_id = ""
@@ -200,11 +195,11 @@ export class GameLobby extends Component {
 
     async onClickJoinRoom(e: Event) {
         if (!this.room_id) {
-            this.setGErrorMsg("请先选择房间")
+            this.ToastPopNode.getComponent(Toast)?.show("Please select a room.", 2);
             return
         }
         if (!AuthManager.isLoggedIn()) {
-            this.setGErrorMsg("请先登录")
+            this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
             return
         }
 
@@ -222,7 +217,7 @@ export class GameLobby extends Component {
 
     onClickCreateRoom(e: Event) {
         if (!AuthManager.isLoggedIn()) {
-            this.setGErrorMsg("Please login.")
+            this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
             return
         }
         this.node.getChildByName('CreateRoom').active = true
@@ -230,28 +225,24 @@ export class GameLobby extends Component {
 
     async onClickConfirmCreateRoom() {
 
-        // get form data
-        const roomId = Number(this.roomIdInput.string)
-        const maxPlayers = Number(this.maxPlayersInput.string)
+        // // get form data
+        // const roomId = Number(this.roomIdInput.string)
+        // const maxPlayers = Number(this.maxPlayersInput.string)
 
-        // validate form
-        if (!roomId) {
-            this.CreateRoomErrorMsgInput.string = 'Room ID empty'
-            return
-        }
+        // // validate form
+        // if (!roomId) {
+        //     this.CreateRoomErrorMsgInput.string = 'Room ID empty'
+        //     return
+        // }
 
         const user = AuthManager.getUser()
-        if (!user._id || !user.username) {
-            this.CreateRoomErrorMsgInput.string = 'Userinfo Error'
-            return
+        if (!user) {
+            this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
         }
 
         this.CreateRoomErrorMsgInput.string = ''
 
-        const res = await this.postLobby({
-            roomId,
-            maxPlayers,
-        })
+        const res = await this.postLobby({})
         this.node.getChildByName('CreateRoom').active = false
 
         if (!res._id) return
@@ -285,7 +276,7 @@ export class GameLobby extends Component {
         console.log('确认登录/或者创建新账户', this.usernameInput.string, this.userPasswordInput.string,)
         // TODO： 前端做正则校验
         if (!this.usernameInput.string || !this.userPasswordInput.string) {
-            this.loginErrorMsgInput.string = 'Username or password empty.'
+            this.ToastPopNode.getComponent(Toast)?.show('Username or password empty.', 2);
             return
         }
 
@@ -295,7 +286,7 @@ export class GameLobby extends Component {
                 username: this.usernameInput.string,
                 password: this.userPasswordInput.string,
             })
-            this.setGSuccessMsg("Create new user successfully, please login.")
+            this.ToastPopNode.getComponent(Toast)?.show("Create new user successfully, please login.", 2);
             this.resetLoginForm()
 
         }
@@ -307,12 +298,12 @@ export class GameLobby extends Component {
                 password: this.userPasswordInput.string
             })
             if (!res.user || !res.expiresIn || !res.token) {
-                this.setGErrorMsg("Failed to retrieve user data! Please check your network or log in again.")
+                this.ToastPopNode.getComponent(Toast)?.show("Failed to retrieve user data! Please check your network or log in again.", 2);
                 return
             }
             AuthManager.login(res)
             this.setLoginStatus()
-            this.setGSuccessMsg("Login successful.")
+            this.ToastPopNode.getComponent(Toast)?.show("Log in successful.", 2);
             this.onClickCancelLogIn()
         }
     }
@@ -326,6 +317,7 @@ export class GameLobby extends Component {
         const callback = () => {
             AuthManager.logout()
             this.setLogoutStatus()
+            this.ToastPopNode.getComponent(Toast)?.show("Log out successful", 2);
         }
         ConfirmDialog.show(undefined, `Are you sure you want to log out of this account?`, undefined, undefined, callback, undefined)
     }
@@ -343,7 +335,7 @@ export class GameLobby extends Component {
     }
 
     resetLoginInput() {
-        this.loginErrorMsgInput.string = ''
+        // this.loginErrorMsgInput.string = ''
         this.usernameInput.string = ''
         this.userPasswordInput.string = ''
     }
@@ -406,20 +398,8 @@ export class GameLobby extends Component {
 
     // ————————————Global Msg ——————————————
 
-    setGErrorMsg(text: string) {
-        this.gErrorMsgLabel.string = text
-        setTimeout(() => {
-            if (!this.gErrorMsgLabel) return
-            this.gErrorMsgLabel.string = ""
-        }, 5000);
-    }
+    setToastPopMsg(msg: string) {
 
-    setGSuccessMsg(text: string) {
-        this.gSuccessMsgLabel.string = text
-        setTimeout(() => {
-            if (!this.gSuccessMsgLabel) return
-            this.gSuccessMsgLabel.string = ""
-        }, 5000);
     }
 
     // —————————————————————————————————————

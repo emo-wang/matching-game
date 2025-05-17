@@ -787,7 +787,7 @@
     "_string": "Content",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 66.375,
+    "_actualFontSize": 72.9140625,
     "_fontSize": 60,
     "_fontFamily": "Arial",
     "_lineHeight": 60,
@@ -910,7 +910,7 @@
     },
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 167.99997793079098,
+      "width": 167.99225530376083,
       "height": 70.56
     },
     "_anchorPoint": {
@@ -949,7 +949,7 @@
     "_string": "text",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
-    "_actualFontSize": 61.949999999999996,
+    "_actualFontSize": 68.05312500000001,
     "_fontSize": 56,
     "_fontFamily": "Arial",
     "_lineHeight": 56,
@@ -1756,8 +1756,8 @@
     ],
     "value": {
       "__type__": "cc.Size",
-      "width": 269.979641154661,
-      "height": 63
+      "width": 269.98493249758917,
+      "height": 62.99999999999999
     }
   },
   {
@@ -1931,36 +1931,6 @@
     "fileId": "a6nMALBf5EHYqNeuWawnwb"
   },
   {
-    "__type__": "db3c8jhGZ5JQ4jK7Xj5uJ/b",
-    "_name": "",
-    "_objFlags": 0,
-    "__editorExtras__": {},
-    "node": {
-      "__id__": 1
-    },
-    "_enabled": true,
-    "__prefab": {
-      "__id__": 90
-    },
-    "titleLabel": {
-      "__id__": 37
-    },
-    "contentLabel": {
-      "__id__": 31
-    },
-    "confirmButton": {
-      "__id__": 60
-    },
-    "cancelButton": {
-      "__id__": 40
-    },
-    "_id": ""
-  },
-  {
-    "__type__": "cc.CompPrefabInfo",
-    "fileId": "be2dl4fAJJsZtWgBqXrZHw"
-  },
-  {
     "__type__": "cc.Widget",
     "_name": "",
     "_objFlags": 0,
@@ -1970,7 +1940,7 @@
     },
     "_enabled": true,
     "__prefab": {
-      "__id__": 92
+      "__id__": 90
     },
     "_alignFlags": 45,
     "_target": null,
@@ -1995,6 +1965,36 @@
   {
     "__type__": "cc.CompPrefabInfo",
     "fileId": "3dugCvLs9Md6TB9M9h4ATZ"
+  },
+  {
+    "__type__": "5a7d6pwg3xInYgS1bAb+VrJ",
+    "_name": "",
+    "_objFlags": 0,
+    "__editorExtras__": {},
+    "node": {
+      "__id__": 1
+    },
+    "_enabled": true,
+    "__prefab": {
+      "__id__": 92
+    },
+    "titleLabel": {
+      "__id__": 37
+    },
+    "contentLabel": {
+      "__id__": 31
+    },
+    "confirmButton": {
+      "__id__": 60
+    },
+    "cancelButton": {
+      "__id__": 40
+    },
+    "_id": ""
+  },
+  {
+    "__type__": "cc.CompPrefabInfo",
+    "fileId": "51t/cZg9dGp4acdF1h0lGC"
   },
   {
     "__type__": "cc.PrefabInfo",
