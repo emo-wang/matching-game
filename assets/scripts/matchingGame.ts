@@ -1,6 +1,7 @@
 import { _decorator, director, resources, Component, UITransform, instantiate, Vec3, Node, Graphics, UIOpacity, tween, Sprite, SpriteFrame, ProgressBar, Label, game, Color } from 'cc';
 import { MatchingData, MatchingCell, shuffleArray, convertDataForClient } from './utils/data/initMatchingData';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
+import { Toast } from './utils/prefabScirpts/ToastPop';
 import { DataManager } from './utils/functions/dataManager';
 import AuthManager from './utils/data/AuthManager';
 import fetchAPI from './utils/functions/fetch';
@@ -42,6 +43,12 @@ export class MatchingGame extends Component {
     @property(Node) private OthersMatchingCellSample: Node = null!
     @property(Node) private GameStatusNode: Node = null!
     @property(Node) private GameTimeBarNode: Node = null!
+    @property(Label) private Username: Label = null!
+    @property(Node) private Info: Node = null!
+    @property(Label) private ReadyButtonLabel: Label = null!
+
+    // global msg
+    @property(Node) private ToastPopNode: Node = null!
 
     update(dt: number): void {
         switch (this.gameStatus) {
@@ -63,13 +70,14 @@ export class MatchingGame extends Component {
     onLoad() {
         const roomInfo = DataManager.instance.get('roomInfo');
         this.room_id = roomInfo.room_id
-        console.log('进入房间：', roomInfo);
+        console.log('Enter Room', roomInfo);
     }
 
     start() {
         this.loadGameResources(() => {
             this.initWebSocket();
             this.initGameLogic();
+            this.initPlayerInfo();
         });
     }
 
@@ -95,6 +103,10 @@ export class MatchingGame extends Component {
             if (callback) callback();
         });
 
+    }
+
+    initPlayerInfo() {
+        this.Username.string = AuthManager.getUser()?.username
     }
 
     initGameTable() {
@@ -136,7 +148,7 @@ export class MatchingGame extends Component {
             // table.name = player.userId
             this.generateUIbyData('otherplayers', table, cols, rows, mapData)
             // 设置用户信息
-            this.OthersTable.children[i].getChildByName('player').getComponent(Label).string = player.username
+            this.OthersTable.children[i].getChildByName('PlayerInfo').getChildByName('Text_Name').getComponent(Label).string = player.username
         })
     }
 
@@ -156,7 +168,7 @@ export class MatchingGame extends Component {
             const wsdata = JSON.parse(event.data)
             console.log('gamews:', wsdata);
             // 当前玩家的gameBoard
-            let gameBoard = []
+            // let gameBoard = []
 
             switch (wsdata.type) {
                 // 连接上ws之后发送enter-room
@@ -193,9 +205,8 @@ export class MatchingGame extends Component {
 
                 case 'start-game':
                     this.gameData = wsdata.data
-                    gameBoard = wsdata.data.players.find((player: any) => player.userId === AuthManager.getUser()._id).gameBoard
+                    let gameBoard = wsdata.data.players.find((player: any) => player.userId === AuthManager.getUser()._id).gameBoard
                     this.matchingData = convertDataForClient(gameBoard)
-                    // console.log('matchingData', this.matchingData)
                     this.initGameTable();
                     this.initMatchingArray();
                     this.timeLeft = TIMELIMIT
@@ -324,17 +335,29 @@ export class MatchingGame extends Component {
 
     updateRoomDisplay(roomData: any) {
         const { roomId, status, config, players } = roomData;
-        const infoText = `Room ID: ${roomId}\n` +
-            // `Status: ${status}\n` +
-            `Mode: ${config.mode}\n` +
-            `Difficulty: ${config.difficulty}\n` +
-            `Players: ${players.length} / ${config.maxPlayers}`;
+        this.setGameStatus(status)
 
-        this.roomInfoLabel.string = infoText;
-        const playerText = players.map((player: any, index: number) => {
-            return `Player ${index + 1}: ${player.username} | Score: ${player.score} | Ready: ${player.isReady ? 'Yes' : 'No'}`;
-        }).join('\n');
-        this.playerInfoLabel.string = playerText;
+        // for (let i = 0; i < this.OthersTable.children.length; i++) {
+        //     this.OthersTable.children[i].active = false
+        // }
+
+        let index = 0
+        players.forEach((player: any) => {
+            if (player.userId !== AuthManager.getUser()._id) {
+                // this.OthersTable.children[index].active = true
+                const playerInfoNode: Node = this.OthersTable.children[index].getChildByName('PlayerInfo')
+                const status: Node = this.OthersTable.children[index].getChildByName('Status')
+                playerInfoNode.getChildByName('Text_Name').getComponent(Label).string = player.username
+                // avatar
+                status.getChildByName('Ready').active = player.isReady
+                status.getChildByName('NotReady').active = !player.isReady
+                index++
+            } else {
+                const status: Node = this.Info.getChildByName('Status')
+                status.getChildByName('Ready').active = player.isReady
+                status.getChildByName('NotReady').active = !player.isReady
+            }
+        });
     }
 
     onClickHint() {
@@ -344,8 +367,8 @@ export class MatchingGame extends Component {
 
     async onClickExit() {
         if (!this.room_id) {
-            console.log('未获取到房间号')
-            return
+            this.ToastPopNode.getComponent(Toast)?.show("RoomId is null", 2);
+            return;
         }
         ConfirmDialog.show(undefined, 'Are you sure you want to exit the room.', undefined, undefined,
             async () => {
@@ -360,13 +383,13 @@ export class MatchingGame extends Component {
     }
 
     onClickReady() {
-        if (this.isReadyToPlay) return
-        this.sendPlayerReady(true)
-    }
-
-    onClickCancelReady() {
-        if (!this.isReadyToPlay) return
-        this.sendPlayerReady(false)
+        if (this.gameStatus === 'playing') {
+            this.ToastPopNode.getComponent(Toast)?.show("Game is playing.", 2);
+            return;
+        }
+        this.sendPlayerReady(!this.isReadyToPlay)
+        this.isReadyToPlay = !this.isReadyToPlay
+        this.ReadyButtonLabel.string = this.isReadyToPlay ? 'CANCEL READY' : 'READY'
     }
 
     onClickPauseGame() {
@@ -545,13 +568,25 @@ export class MatchingGame extends Component {
         this.GameStatusNode.getComponent(Label).string = status.toString();
         switch (status) {
             case GAMESTATUS.PLAYING:
+                this.OthersTable.children.forEach(el => {
+                    // reset
+                    el.getChildByName('Status').getChildByName('Ready').active = false
+                    el.getChildByName('Status').getChildByName('NotReady').active = true
+                    el.getChildByName('Status').active = false
+                });
+                this.Info.getChildByName('Status').getChildByName('Ready').active = false
+                this.Info.getChildByName('Status').getChildByName('NotReady').active = true
+                this.Info.getChildByName('Status').active = false
 
                 break;
             case GAMESTATUS.PAUSE:
 
                 break;
             case GAMESTATUS.ENDED:
-
+                this.OthersTable.children.forEach(el => {
+                    el.getChildByName('Status').active = true
+                });
+                this.Info.getChildByName('Status').active = true
                 break;
             case GAMESTATUS.WAITING:
 
