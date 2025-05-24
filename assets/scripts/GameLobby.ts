@@ -130,7 +130,6 @@ export class GameLobby extends Component {
 
     // ——————————roomList CRUD——————————————————
 
-    // RoomListColumnName = ['房间名', '房主' ,'当前房间玩家', '游戏状态', '是否为私密房间']
 
     initRoomList(roomList: []) {
         // TODO: 优化，现在是直接覆盖
@@ -270,17 +269,14 @@ export class GameLobby extends Component {
         this.node.getChildByName('LoginForm').active = true
     }
 
-    // TODO: 错误处理
-    // TODO: 成功处理
     async onClickConfirmLogIn() {
         console.log('确认登录/或者创建新账户', this.usernameInput.string, this.userPasswordInput.string,)
-        // TODO： 前端做正则校验
+
         if (!this.usernameInput.string || !this.userPasswordInput.string) {
             this.ToastPopNode.getComponent(Toast)?.show('Username or password empty.', 2);
             return
         }
 
-        // 创建新用户
         if (this.loginMode === 'create') {
             const res = await this.createUser({
                 username: this.usernameInput.string,
@@ -291,7 +287,6 @@ export class GameLobby extends Component {
 
         }
 
-        // 登录用户
         else {
             const res = await this.login({
                 username: this.usernameInput.string,
@@ -366,8 +361,6 @@ export class GameLobby extends Component {
 
     // ————————————获取接口数据——————————————
 
-    // TODO: 这里要连接上websocket，获取实时的room数据
-    // 进入房间之后，就是拿到room数据对其进行修改
 
     async enterRoom(body: any): Promise<any> {
         return await fetchAPI('/game/enter', { method: 'POST', body });

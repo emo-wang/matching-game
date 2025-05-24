@@ -344,7 +344,7 @@ export class MatchingGame extends Component {
         let index = 0
         players.forEach((player: any) => {
             if (player.userId !== AuthManager.getUser()._id) {
-                // this.OthersTable.children[index].active = true
+                this.showNodeByOpacity(this.OthersTable.children[index])
                 const playerInfoNode: Node = this.OthersTable.children[index].getChildByName('PlayerInfo')
                 const status: Node = this.OthersTable.children[index].getChildByName('Status')
                 playerInfoNode.getChildByName('Text_Name').getComponent(Label).string = player.username
@@ -358,6 +358,10 @@ export class MatchingGame extends Component {
                 status.getChildByName('NotReady').active = !player.isReady
             }
         });
+
+        for (let i = index; i < this.OthersTable.children.length; i++) {
+            this.hideNodeByOpacity(this.OthersTable.children[i])
+        }
     }
 
     onClickHint() {
@@ -793,5 +797,15 @@ export class MatchingGame extends Component {
         }
 
         return { matched: false, route: [] };
+    }
+
+    hideNodeByOpacity(node: Node) {
+        const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+        opacity.opacity = 0;
+    }
+
+    showNodeByOpacity(node: Node) {
+        const opacity = node.getComponent(UIOpacity) || node.addComponent(UIOpacity);
+        opacity.opacity = 255;
     }
 }
