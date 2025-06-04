@@ -14,11 +14,15 @@ const GAMESTATUS = {
     ENDED: 'ended',
 }
 
+const MAPTYPE = [0, 1];
+const MAXPLAYER = [2, 3, 4, 5, 6];
+
 const TIMELIMIT = 60
 
 @ccclass('MatchingGame')
 export class MatchingGame extends Component {
     private ws: WebSocket | null = null;
+    roomData: any = null; // 房间数据
     gameData: any = null; // 用于发给服务端的
     matchingData: MatchingData = null; // 页面显示数据
     matchingArray = null // 用于处理逻辑，除了数据周围还有一圈-1的格子
@@ -33,10 +37,16 @@ export class MatchingGame extends Component {
     room_id: string = '' // room uuid
     isReadyToPlay: boolean = false; //当前玩家是否已准备开始游戏
 
-    @property(Graphics) private graphicsLink: Graphics = null!
+    // game config
+    private mapTypeIndex: number = 0;
+    private maxPlayerIndex: number = MAXPLAYER.length - 1;
+    @property(Label) private MapType: Label = null! // 游戏地图类型
+    @property(Label) private MaxPlayer: Label = null! // 最大游戏人数
+    @property(Node) private ConfigTable: Node = null!
 
-    @property(Label) private playerInfoLabel: Label = null!
-    @property(Label) private roomInfoLabel: Label = null!
+    // 
+    @property(Graphics) private graphicsLink: Graphics = null! // 连接线
+
     @property(Node) private OthersTable: Node = null!
     @property(Node) private Table: Node = null!
     @property(Node) private MatchingCellSample: Node = null!
@@ -45,7 +55,7 @@ export class MatchingGame extends Component {
     @property(Node) private GameTimeBarNode: Node = null!
     @property(Label) private Username: Label = null!
     @property(Node) private Info: Node = null!
-    @property(Label) private ReadyButtonLabel: Label = null!
+    @property(Label) private ReadyButton: Label = null!
 
     // global msg
     @property(Node) private ToastPopNode: Node = null!
@@ -68,9 +78,9 @@ export class MatchingGame extends Component {
     }
 
     onLoad() {
-        const roomInfo = DataManager.instance.get('roomInfo');
-        this.room_id = roomInfo.room_id
-        console.log('Enter Room', roomInfo);
+        // this.roomInfo = DataManager.instance.get('roomInfo');
+        this.room_id = DataManager.instance.get('roomInfo')._id;
+        // console.log('Enter Room', roomInfo);
     }
 
     start() {
@@ -171,7 +181,6 @@ export class MatchingGame extends Component {
             // let gameBoard = []
 
             switch (wsdata.type) {
-                // 连接上ws之后发送enter-room
                 case 'welcome':
                     this.ws.send(JSON.stringify({
                         type: 'enter-room',
@@ -199,8 +208,16 @@ export class MatchingGame extends Component {
 
                 case 'enter-room':
                     // 有任何玩家进入房间都会触发enter-room，自己进入也会触发
+                    this.roomData = wsdata.data
+                    this.initConfig()
                     this.updateRoomDisplay(wsdata.data)
 
+                    break;
+
+                case `update-config`:
+                    // console.log(this.roomData, this.gameData)
+                    this.roomData.config = wsdata.data
+                    this.initConfig()
                     break;
 
                 case 'start-game':
@@ -219,7 +236,6 @@ export class MatchingGame extends Component {
                     // 更新逻辑，自己的操作是本地完成（包括消除和结束游戏），然后将操作发送到ws，让其他玩家更新状态。
                     const { pArr, userId, isEnded } = wsdata.data
 
-                    // update gameData(others)
                     this.gameData.players.forEach((player: any) => {
                         if (player.userId === userId) {
                             for (let i = 0; i < pArr.length; i++) {
@@ -236,12 +252,14 @@ export class MatchingGame extends Component {
 
                 case 'pause-game':
                     this.setGameStatus(GAMESTATUS.PAUSE)
-                    // TODO:暂停游戏
+                    // TODO: 暂停游戏
+                    this.ToastPopNode.getComponent(Toast)?.show("Game paused!", 2);
                     break;
 
                 case 'end-game':
                     this.setGameStatus(GAMESTATUS.ENDED)
-                    // TODO:结束游戏
+                    // TODO: 结束游戏
+                    this.ToastPopNode.getComponent(Toast)?.show("Game ended!", 2);
                     break;
 
                 default:
@@ -250,7 +268,7 @@ export class MatchingGame extends Component {
         };
 
         this.ws.onclose = () => {
-            director.loadScene('LobbyScene')
+            director.loadScene('LobbyScene');
             console.log('WebSocket 连接关闭');
         };
 
@@ -374,6 +392,12 @@ export class MatchingGame extends Component {
             this.ToastPopNode.getComponent(Toast)?.show("RoomId is null", 2);
             return;
         }
+
+        if (this.gameStatus === GAMESTATUS.PLAYING) {
+            this.ToastPopNode.getComponent(Toast)?.show("Game is already started", 2);
+            return;
+        }
+
         ConfirmDialog.show(undefined, 'Are you sure you want to exit the room.', undefined, undefined,
             async () => {
                 await this.exitRoom({ roomId: this.room_id })
@@ -393,7 +417,7 @@ export class MatchingGame extends Component {
         }
         this.sendPlayerReady(!this.isReadyToPlay)
         this.isReadyToPlay = !this.isReadyToPlay
-        this.ReadyButtonLabel.string = this.isReadyToPlay ? 'CANCEL READY' : 'READY'
+        this.ReadyButton.string = this.isReadyToPlay ? 'CANCEL READY' : 'READY'
     }
 
     onClickPauseGame() {
@@ -405,6 +429,10 @@ export class MatchingGame extends Component {
     }
 
     onClickStartGame() {
+        if (this.gameStatus === 'playing') {
+            this.ToastPopNode.getComponent(Toast)?.show("Game is playing.", 2);
+            return;
+        }
         this.sendGameStart()
     }
 
@@ -415,6 +443,64 @@ export class MatchingGame extends Component {
         this.lastClickedCell = null
         this.initGameLogic()
     }
+
+    onClickSaveConfig() {
+        ConfirmDialog.show(undefined, `Are you sure you want to save this config? You can't change the config after you choose yes.`, undefined, undefined,
+            async () => {
+                await this.updateRoom({
+                    roomId: this.room_id,
+                    config: {
+                        mapType: MAPTYPE[this.mapTypeIndex],
+                        maxPlayers: MAXPLAYER[this.maxPlayerIndex]
+                    }
+                })
+            },
+            undefined)
+    }
+
+    // game config
+
+    initConfig() {
+        const { maxPlayers, mapType } = this.roomData.config
+        this.maxPlayerIndex = MAXPLAYER.indexOf(maxPlayers) >= 0 ? MAXPLAYER.indexOf(maxPlayers) : 0;
+        this.mapTypeIndex = MAPTYPE.indexOf(mapType) >= 0 ? MAPTYPE.indexOf(mapType) : 0;
+        this.updateLabels();
+    }
+
+    private updateLabels() {
+        this.MapType.string = MAPTYPE[this.mapTypeIndex].toString();
+        this.MaxPlayer.string = MAXPLAYER[this.maxPlayerIndex].toString();
+    }
+
+    public onClickMapTypeLeft() {
+        this.mapTypeIndex = (this.mapTypeIndex - 1 + MAPTYPE.length) % MAPTYPE.length;
+        this.updateLabels();
+    }
+
+    public onClickMapTypeRight() {
+        this.mapTypeIndex = (this.mapTypeIndex + 1) % MAPTYPE.length;
+        this.updateLabels();
+    }
+
+    public onClickMaxPlayerLeft() {
+        this.maxPlayerIndex = (this.maxPlayerIndex - 1 + MAXPLAYER.length) % MAXPLAYER.length;
+        this.updateLabels();
+    }
+
+    public onClickMaxPlayerRight() {
+        this.maxPlayerIndex = (this.maxPlayerIndex + 1) % MAXPLAYER.length;
+        this.updateLabels();
+    }
+
+    public getMapType(): number {
+        return MAPTYPE[this.mapTypeIndex];
+    }
+
+    public getMaxPlayer(): number {
+        return MAXPLAYER[this.maxPlayerIndex];
+    }
+
+    // 
 
     onClickCell(e: any, mapId: number) {
         if (this.gameStatus !== GAMESTATUS.PLAYING) return
@@ -572,8 +658,8 @@ export class MatchingGame extends Component {
         this.GameStatusNode.getComponent(Label).string = status.toString();
         switch (status) {
             case GAMESTATUS.PLAYING:
+                // reset status
                 this.OthersTable.children.forEach(el => {
-                    // reset
                     el.getChildByName('Status').getChildByName('Ready').active = false
                     el.getChildByName('Status').getChildByName('NotReady').active = true
                     el.getChildByName('Status').active = false
@@ -581,6 +667,7 @@ export class MatchingGame extends Component {
                 this.Info.getChildByName('Status').getChildByName('Ready').active = false
                 this.Info.getChildByName('Status').getChildByName('NotReady').active = true
                 this.Info.getChildByName('Status').active = false
+                this.ReadyButton.string = this.isReadyToPlay ? 'READY' : 'CANCEL READY'
 
                 break;
             case GAMESTATUS.PAUSE:
@@ -591,6 +678,7 @@ export class MatchingGame extends Component {
                     el.getChildByName('Status').active = true
                 });
                 this.Info.getChildByName('Status').active = true
+
                 break;
             case GAMESTATUS.WAITING:
 
@@ -604,6 +692,10 @@ export class MatchingGame extends Component {
 
     async exitRoom(body: any): Promise<any> {
         return await fetchAPI('/game/exit', { method: 'POST', body });
+    }
+
+    async updateRoom(body: any): Promise<any> {
+        return await fetchAPI('/game/update', { method: 'POST', body });
     }
 
     sendGamePause() {
@@ -677,6 +769,7 @@ export class MatchingGame extends Component {
             }
         }));
     }
+
 
     //——————————————————————————————————————————————————————————————————————
 

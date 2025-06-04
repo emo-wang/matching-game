@@ -1,4 +1,4 @@
-import { _decorator, native, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, Toggle, EditBox } from 'cc';
+import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, EditBox } from 'cc';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { Toast } from './utils/prefabScirpts/ToastPop';
 import { ErrorOverlay } from './utils/prefabScirpts/ErrorOverlay';
@@ -141,7 +141,7 @@ export class GameLobby extends Component {
             let newNode = instantiate(this.RoomListItem)
             newNode.active = true
             newNode.getChildByName('Info').getChildByName('RoomId').getComponent(Label).string = item.roomId
-            newNode.getChildByName('Info').getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.maxPlayers}`
+            newNode.getChildByName('Info').getChildByName('Player').getComponent(Label).string = `${item.players.length}/${item.config.maxPlayers}`
             newNode.getChildByName('Info').getChildByName('Status').getComponent(Label).string = item.status
             newNode.getChildByName('Info').getChildByName('Owner').getComponent(Label).string = item.owner.username
             newNode.getChildByName('Info').getChildByName('IsPrivate').getComponent(Label).string = item.isPrivate
@@ -205,9 +205,9 @@ export class GameLobby extends Component {
         ConfirmDialog.show(undefined, `Are you sure you want to join this room?`, undefined, undefined,
             async () => {
                 await this.enterRoom({ roomId: this.room_id })
-                DataManager.instance.set('roomInfo', {
-                    room_id: this.room_id
-                });
+                DataManager.instance.set('roomInfo',
+                    this.roomList.find(room => room._id === this.room_id)
+                );
                 this.room_id = null
                 director.loadScene('RoomScene')
             },
@@ -247,9 +247,7 @@ export class GameLobby extends Component {
         if (!res._id) return
 
         // 进入房间
-        DataManager.instance.set('roomInfo', {
-            room_id: res._id
-        });
+        DataManager.instance.set('roomInfo', res);
         director.loadScene('RoomScene')
     }
 
