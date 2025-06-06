@@ -1,7 +1,6 @@
 import { _decorator, resources, SpriteFrame, director, Component, instantiate, Label, Color, Node, Sprite, EditBox } from 'cc';
 import { ConfirmDialog } from './utils/prefabScirpts/confirmDialog';
 import { Toast } from './utils/prefabScirpts/ToastPop';
-import { ErrorOverlay } from './utils/prefabScirpts/ErrorOverlay';
 import fetchAPI from './utils/functions/fetch';
 import { DataManager } from './utils/functions/dataManager';
 import AuthManager from './utils/data/AuthManager';
@@ -14,18 +13,16 @@ const FONTSIZE = 18
 export class GameLobby extends Component {
     private ws: WebSocket | null = null;
     roomList = [];
-    room_id: string = '' // 房间uuid
-    roomId: string = '' //房间id
+    room_id: string = '' // 当前被选中的room_id
 
     // roomList
     @property(Node) private RoomListContainer: Node = null!
     @property(Node) private RoomListItem: Node = null!
-    @property(Node) private RoomListTitle: Node = null!
+    // @property(Node) private RoomListTitle: Node = null!
 
     // createroom form nodes
-    @property(EditBox) private roomIdInput: EditBox = null!;
-    @property(EditBox) private maxPlayersInput: EditBox = null!;
-    @property(Label) private CreateRoomErrorMsgInput: Label = null!;
+    // @property(EditBox) private roomIdInput: EditBox = null!;
+    // @property(EditBox) private maxPlayersInput: EditBox = null!;
 
     // login/ logout
     loginMode: string = 'login' // create/login
@@ -51,7 +48,7 @@ export class GameLobby extends Component {
     }
 
     start() {
-        ErrorOverlay.initErrorHandler()
+        this.initErrorHandler();
         this.loadGameResources(() => {
             this.initGameLobby();
         });
@@ -84,6 +81,28 @@ export class GameLobby extends Component {
         });
     }
 
+    closeWebSocket() {
+        this.ws.onopen = null;
+        this.ws.onclose = null;
+        this.ws.onerror = null;
+        this.ws.onmessage = null;
+        this.ws.close();
+        this.ws = null;
+    }
+
+    initErrorHandler() {
+        let node: any = document.getElementById('error');
+        if (node) {
+            node.remove();
+            node = null;
+        }
+        const popup = document.querySelector('div[style*="z-index: 9999"]');
+        if (popup) popup.remove();
+        window.addEventListener('unhandledrejection', (event) => {
+            this.ToastPopNode.getComponent(Toast)?.show((event.reason?.message || String(event.reason)), 2);
+        });
+    }
+
     initWebSocket() {
         this.ws = new WebSocket('ws://localhost:3001');
 
@@ -94,10 +113,24 @@ export class GameLobby extends Component {
         this.ws.onmessage = (event) => {
             const wsdata = JSON.parse(event.data)
             console.log('lobbyws', wsdata);
-            if (wsdata.type === 'update-lobbies') {
-                this.roomList = wsdata.data
-                this.initRoomList(wsdata.data)
+
+            switch (wsdata.type) {
+                case 'update-lobbies':
+                    this.roomList = wsdata.data;
+                    this.initRoomList(wsdata.data);
+                    break;
+
+                case 'update-room':
+                    // console.log(this)
+                    for (let i = 0; i < this.roomList.length; i++) {
+                        if (this.roomList[i]._id === wsdata.data._id) {
+                            this.roomList[i] = wsdata.data
+                        }
+                    }
+                    this.initRoomList(this.roomList)
+                    break;
             }
+
         };
 
         this.ws.onclose = () => {
@@ -131,7 +164,7 @@ export class GameLobby extends Component {
     // ——————————roomList CRUD——————————————————
 
 
-    initRoomList(roomList: []) {
+    initRoomList(roomList: any[]) {
         // TODO: 优化，现在是直接覆盖
         // console.log('initRoomList')
         if (!this.RoomListContainer) return
@@ -193,12 +226,20 @@ export class GameLobby extends Component {
     }
 
     async onClickJoinRoom(e: Event) {
-        if (!this.room_id) {
+
+        const room = this.roomList.find((room) => room._id === this.room_id)
+        if (!this.room_id || !room) {
             this.ToastPopNode.getComponent(Toast)?.show("Please select a room.", 2);
             return
         }
+
         if (!AuthManager.isLoggedIn()) {
             this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
+            return
+        }
+
+        if (room.players.length >= room.config.maxPlayers) {
+            this.ToastPopNode.getComponent(Toast)?.show("This room is full.", 2);
             return
         }
 
@@ -209,6 +250,7 @@ export class GameLobby extends Component {
                     this.roomList.find(room => room._id === this.room_id)
                 );
                 this.room_id = null
+                this.closeWebSocket()
                 director.loadScene('RoomScene')
             },
             undefined)
@@ -224,22 +266,11 @@ export class GameLobby extends Component {
 
     async onClickConfirmCreateRoom() {
 
-        // // get form data
-        // const roomId = Number(this.roomIdInput.string)
-        // const maxPlayers = Number(this.maxPlayersInput.string)
-
-        // // validate form
-        // if (!roomId) {
-        //     this.CreateRoomErrorMsgInput.string = 'Room ID empty'
-        //     return
-        // }
-
         const user = AuthManager.getUser()
         if (!user) {
             this.ToastPopNode.getComponent(Toast)?.show("Please sign in first.", 2);
         }
 
-        this.CreateRoomErrorMsgInput.string = ''
 
         const res = await this.postLobby({})
         this.node.getChildByName('CreateRoom').active = false
@@ -248,6 +279,7 @@ export class GameLobby extends Component {
 
         // 进入房间
         DataManager.instance.set('roomInfo', res);
+        this.closeWebSocket()
         director.loadScene('RoomScene')
     }
 

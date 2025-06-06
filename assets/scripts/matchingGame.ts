@@ -355,10 +355,6 @@ export class MatchingGame extends Component {
         const { roomId, status, config, players } = roomData;
         this.setGameStatus(status)
 
-        // for (let i = 0; i < this.OthersTable.children.length; i++) {
-        //     this.OthersTable.children[i].active = false
-        // }
-
         let index = 0
         players.forEach((player: any) => {
             if (player.userId !== AuthManager.getUser()._id) {
@@ -658,6 +654,7 @@ export class MatchingGame extends Component {
         this.GameStatusNode.getComponent(Label).string = status.toString();
         switch (status) {
             case GAMESTATUS.PLAYING:
+                this.ConfigTable.active = false;
                 // reset status
                 this.OthersTable.children.forEach(el => {
                     el.getChildByName('Status').getChildByName('Ready').active = false
@@ -674,6 +671,7 @@ export class MatchingGame extends Component {
 
                 break;
             case GAMESTATUS.ENDED:
+                this.ConfigTable.active = true;
                 this.OthersTable.children.forEach(el => {
                     el.getChildByName('Status').active = true
                 });
